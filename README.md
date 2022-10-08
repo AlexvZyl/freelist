@@ -1,4 +1,4 @@
-# freelist.rs
+# Rust Freelist Allocator
 
 A cache coherent freelist memory allocator written in rust.
 
