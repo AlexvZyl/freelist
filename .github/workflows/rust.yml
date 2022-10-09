@@ -23,5 +23,6 @@ jobs:
     runs-on: ubuntu-latest
     name: Format
     steps:
+      - uses: actions/checkout@v3
       - run: rustup component add rustfmt
       - run: cargo fmt --all -- --check
