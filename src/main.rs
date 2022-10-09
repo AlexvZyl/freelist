@@ -1,3 +1,6 @@
+use freelist::Freelist;
+
 fn main() {
-    println!("Hello, world!");
-}
+    let fl = Freelist::<i32>::new(); 
+    print!("{}", fl.type_size());
+} 
