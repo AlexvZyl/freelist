@@ -25,4 +25,4 @@ jobs:
     steps:
       - uses: actions/checkout@main
       - run: rustup component add rustfmt
-      - run: cargo fmt -- --write-mode=diff
+      - run: cargo fmt --all
