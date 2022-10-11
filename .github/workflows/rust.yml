@@ -21,7 +21,14 @@ jobs:
       
   fmt:
     runs-on: ubuntu-latest
-    name: Format
     steps:
-      - uses: actions/checkout@v3
-      - run: cargo fmt --all -- --check
+    - uses: actions/checkout@v3
+    - name: Format code (rustfmt)
+      run: cargo fmt --all
+    - name: Push format changes
+      if: steps.git-check.outputs.modified == 'true'
+      run: | 
+        git config --global user.name 'GitHub Action'
+        git config --global user.email 'alex-vzyl@users.noreply.github.com'
+        git commit -am "Automated formatting"
+        git push
