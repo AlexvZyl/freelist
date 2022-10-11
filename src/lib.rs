@@ -21,12 +21,11 @@ struct Block {
 
 // Freelist implementations.
 impl<T> Freelist<T> {
-
     /// Create a new empty freelist.
     pub fn new() -> Self {
         Freelist {
             heap_data: Vec::with_capacity(0),
-            first_free_block: Some(0)
+            first_free_block: Some(0),
         }
     }
 
@@ -43,7 +42,9 @@ impl<T> Freelist<T> {
 
     /// Allocate enough memory for the amount of elements requested.
     /// This is only unsafe since the memory will be uninitialized.
-    fn allocate(&mut self, element_count:usize) {
-        unsafe { self.heap_data.set_len(element_count); }
+    fn allocate(&mut self, element_count: usize) {
+        unsafe {
+            self.heap_data.set_len(element_count);
+        }
     }
 }
