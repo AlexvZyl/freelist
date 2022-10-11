@@ -30,8 +30,7 @@ impl<T> Freelist<T> {
         }
     }
 
-    /// Get the size of the type in bytes.
-    /// The size includes alignment.
+    /// Get the size of the type in bytes (includes alignment).
     // This *can* be evauluated at compile-time, but is it always?
     pub fn type_size(&self) -> usize {
         mem::size_of::<T>()
