@@ -1,4 +1,4 @@
-name: Rust
+name: Format
 
 on:
   push:
@@ -14,9 +14,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    - name: Format code (rustfmt)
+    - name: Run rustfmt
       run: cargo fmt --all
-    - name: Push format changes
+    - name: Push changes
       run: | 
         if [[ $(git diff --stat) != '' ]]; then
           git config --global user.name 'GitHub Actions'
