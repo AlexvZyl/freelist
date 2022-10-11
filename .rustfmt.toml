@@ -1,1 +1,7 @@
+# Braces.
+brace_style = "AlwaysNextLine"
+empty_item_single_line = true
+
+# Comments.
+wrap_comments = true
 
