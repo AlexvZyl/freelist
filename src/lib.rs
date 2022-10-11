@@ -20,6 +20,7 @@ struct Block {
 
 // Freelist implementations.
 impl<T> Freelist<T> {
+
     /// Create a new empty freelist.
     pub fn new() -> Self {
         Freelist {
