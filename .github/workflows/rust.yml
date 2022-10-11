@@ -26,7 +26,6 @@ jobs:
     - name: Format code (rustfmt)
       run: cargo fmt --all
     - name: Push format changes
-      if: steps.git-check.outputs.modified == 'true'
       run: | 
         git config --global user.name 'GitHub Action'
         git config --global user.email 'alex-vzyl@users.noreply.github.com'
