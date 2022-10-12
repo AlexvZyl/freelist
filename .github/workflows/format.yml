@@ -1,31 +1,20 @@
-name: Rust
+name: Format
 
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
     branches: [ "main" ]
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-    - name: Build
-      run: cargo build --verbose
-    - name: Run tests
-      run: cargo test --verbose
-      
   fmt:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    - name: Format code (rustfmt)
+    - name: Run rustfmt
       run: cargo fmt --all
-    - name: Push format changes
+    - name: Push changes
       run: | 
         if [[ $(git diff --stat) != '' ]]; then
           git config --global user.name 'GitHub Actions'

@@ -22,7 +22,6 @@ struct Block {
 
 // Freelist implementations.
 impl<T> Freelist<T> {
-
     /// Create a new, empty freelist.
     pub fn new() -> Self {
         // Need to assert the size of the type to ensure `Block` can fit.
@@ -31,6 +30,7 @@ impl<T> Freelist<T> {
         Freelist {
             heap_data: Vec::with_capacity(0),
             first_free_block: None
+
         }
     } 
 
