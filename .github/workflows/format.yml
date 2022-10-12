@@ -13,7 +13,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Install nightly
-      run: rustup toolchain install nightly
+      run: rustup install nightly
     - name: Run rustfmt
       run: cargo +nightly fmt --all
     - name: Push changes
