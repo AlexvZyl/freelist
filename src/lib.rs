@@ -71,9 +71,9 @@ impl<T> Freelist<T>
     /// This is highly unsafe.  
     ///
     /// * Performs a non-primitive cast.
-    unsafe fn get_block_mut(&mut self, index: usize) -> &mut Block
+    fn get_block_mut(&mut self, index: usize) -> &mut Block
     {
-        transmute(&mut self.heap_data[index])
+        unsafe { transmute(&mut self.heap_data[index]) }
     }
 
     /// Get a const ref the block at the given index.
@@ -83,8 +83,14 @@ impl<T> Freelist<T>
     /// This is unsafe.
     ///
     /// * Performs a non-primitive cast.
-    unsafe fn get_block(&self, index: usize) -> &Block
+    fn get_block(&self, index: usize) -> &Block
     {
-        transmute(&self.heap_data[index])
+        unsafe { transmute(&self.heap_data[index]) }
+    }
+
+    /// Checks if the blocks are adjacent.
+    fn blocks_are_adjacent(&self, index_1: usize, index_2: usize) -> bool
+    {
+        index_1 + self.get_block(index_1).count as usize == index_2
     }
 }
