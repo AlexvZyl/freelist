@@ -1,10 +1,17 @@
+#![allow(dead_code)]
+
 use std::mem::{size_of, transmute};
 use std::vec::Vec;
 
 mod block;
 use block::Block;
 
+/// The maximum size (in bytes) of the freelist.
+const MAX_SIZE_BYTES: i32 = 2147483647;
+
 /// A cache coherent, heap allocated collection.
+/// This data structure uses i32 instead of usize due to the constrasints placed on `Block`.
+/// It will never require 64 bit indexing.  What about smaller architectures?
 pub struct Freelist<T>
 {
     /// Pointer to the data located on the heap.
@@ -12,7 +19,7 @@ pub struct Freelist<T>
     /// Index to the first free block in the list.
     first_free_block: Option<i32>,
     /// The amount of elements the freelist can hold.
-    capacity: usize,
+    capacity: i32
 }
 
 // Freelist implementations.
@@ -33,9 +40,9 @@ impl<T> Freelist<T>
 
     /// Get the size of the type in bytes (includes alignment).
     // This *can* be evauluated at compile-time, but is it always?
-    pub const fn type_size(&self) -> usize
+    pub const fn type_size_bytes(&self) -> i32
     {
-        size_of::<T>()
+        size_of::<T>() as i32
     }
 
     /// Check if the freelist has an empty (free) block.
@@ -55,9 +62,9 @@ impl<T> Freelist<T>
     /// * The vector can be truncated without `T` being dropped.
     /// * When extending the vector the memory is uninitialized (which is
     ///   actually better for performance in this case).
-    unsafe fn allocate(&mut self, element_count: usize)
+    fn allocate(&mut self, element_count: i32)
     {
-        self.heap_data.set_len(element_count);
+        unsafe { self.heap_data.set_len(element_count as usize); }
     }
 
     /// Get a mutable ref the block at the given index.
@@ -67,9 +74,9 @@ impl<T> Freelist<T>
     /// This is highly unsafe.  
     ///
     /// * Performs a non-primitive cast.
-    fn get_block_mut(&mut self, index: usize) -> &mut Block
+    fn get_block_mut(&mut self, index: i32) -> &mut Block
     {
-        unsafe { transmute(&mut self.heap_data[index]) }
+        unsafe { transmute(&mut self.heap_data[index as usize]) }
     }
 
     /// Get a const ref the block at the given index.
@@ -79,15 +86,15 @@ impl<T> Freelist<T>
     /// This is unsafe.
     ///
     /// * Performs a non-primitive cast.
-    fn get_block(&self, index: usize) -> &Block
+    fn get_block(&self, index: i32) -> &Block
     {
-        unsafe { transmute(&self.heap_data[index]) }
+        unsafe { transmute(&self.heap_data[index as usize]) }
     }
 
     /// Checks if the blocks are adjacent.
-    fn blocks_are_adjacent(&self, index_1: usize, index_2: usize) -> bool
+    fn blocks_are_adjacent(&self, index_1: i32, index_2: i32) -> bool
     {
-        index_1 + self.get_block(index_1).count as usize == index_2
+        index_1 + self.get_block(index_1).count == index_2
     }
 
     /// Shrink the freelist to the smallest it can be.
@@ -97,27 +104,44 @@ impl<T> Freelist<T>
     /// Returns -1 if none is found.
     fn find_last_free_block(&self) -> i32
     {
-        if !self.has_free_block() {
-            return -1;
-        };
-        loop {
-            let current_block_index = self.first_free_block.unwrap() as usize;
+        // No blocks to search.
+        if !self.has_free_block() { return -1; };
+        // Search blocks.
+        loop 
+        {
+            let current_block_index = self.first_free_block.unwrap();
             let current_block = self.get_block(current_block_index);
-            if !current_block.has_next_block() {
-                return current_block_index as i32;
-            }
+            if !current_block.has_next_block() { return current_block_index; }
         }
     }
 
     /// Find the first free block that fits the size requirement.
     /// Returns the index to the block.
-    // fn find_first_free_block() -> usize
-    // {
-    // }
-
-    /// Return the capacity of the freelist.
-    pub fn capacity(&self) -> usize
+    fn find_first_free_block(&self, element_count: i32) -> i32
+    {
+        // No blocks to search.
+        if !self.has_free_block() { return -1; };
+        // Search blocks.
+        loop 
+        {
+            let current_block_index = self.first_free_block.unwrap();
+            let current_block = self.get_block(current_block_index);
+            // Found large enough block.
+            if current_block.count >= element_count { return current_block_index }
+            // Could not find a block.
+            if !current_block.has_next_block() { return -1; };
+        }
+    }
+    
+    /// Get the capacity of the freelist.
+    pub fn capacity(&self) -> i32
     {
         self.capacity
+    } 
+
+    /// Get the capacity of the freelist in bytes.
+    pub fn capacity_bytes(&self) -> i32
+    {
+        self.capacity() * self.type_size_bytes()
     }
 }
