@@ -12,10 +12,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    - name: Install nightly
-      run: rustup install nightly
-    - name: Run rustfmt
-      run: cargo +nightly fmt --all
+    - name: Get nightly toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: nightly
+        override: true
+        profile: minimal
+        components: rustfmt
+    - name: Run cargo fmt
+      uses: actions-rs/cargo@v1
+      with:
+        command: fmt
+        args: --all -- --check
+        
     - name: Push changes
       run: | 
         if [[ $(git diff --stat) != '' ]]; then
