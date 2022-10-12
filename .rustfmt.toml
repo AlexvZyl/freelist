@@ -1,7 +1,4 @@
-# Braces.
+unstable_features = true
 brace_style = "AlwaysNextLine"
 empty_item_single_line = true
-
-# Comments.
 wrap_comments = true
-
