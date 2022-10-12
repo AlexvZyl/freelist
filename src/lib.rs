@@ -34,7 +34,7 @@ impl<T> Freelist<T>
         Freelist {
             heap_data: Vec::with_capacity(0),
             first_free_block: None,
-            capacity: 0
+            capacity: 0,
         }
     }
 
@@ -52,7 +52,8 @@ impl<T> Freelist<T>
     }
 
     /// Allocate enough memory for the amount of elements requested.
-    /// This is regarded as a low-level function and does not do any required checks.
+    /// This is regarded as a low-level function and does not do any required
+    /// checks.
     ///
     /// # Safety
     ///
@@ -97,14 +98,11 @@ impl<T> Freelist<T>
     }
 
     /// Shrink the freelist to the smallest it can be.
-    pub fn shrink_to_fit()
-    {
-
-    }
+    pub fn shrink_to_fit() {}
 
     /// Traverse the list to find the last free block.
     /// Returns -1 if none is found.
-    fn find_last_free_block(&self) -> i32 
+    fn find_last_free_block(&self) -> i32
     {
         // No blocks to search.
         if !self.has_free_block() { return -1; };

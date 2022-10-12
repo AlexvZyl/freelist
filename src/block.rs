@@ -13,7 +13,7 @@ pub struct Block
 }
 
 // Block implementations.
-impl Block 
+impl Block
 {
     /// Checks if the block has a block that sits after it.
     pub fn has_next_block(&self) -> bool
