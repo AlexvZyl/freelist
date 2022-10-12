@@ -1,5 +1,7 @@
 /// Used to describe an open block in freelist::Freelist<T>.
 /// A block can consist of many blocks, if they are contiguous.
+/// This struct does not use `usize` since I want to force it to
+/// be 8 bytes (64 bits).
 pub struct Block
 {
     /// How many of `T` can be fit into the current block.

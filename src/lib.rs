@@ -4,7 +4,12 @@ use std::vec::Vec;
 mod block;
 use block::Block;
 
+/// The maximum size (in bytes) of the freelist.
+const MAX_SIZE_BYTES: i32 = 2^32-1;
+
 /// A cache coherent, heap allocated collection.
+/// This data structure uses i32 instead of usize due to the constrasints placed on `Block`.
+/// It will never require 64 bit indexing.
 pub struct Freelist<T>
 {
     /// Pointer to the data located on the heap.
@@ -12,7 +17,7 @@ pub struct Freelist<T>
     /// Index to the first free block in the list.
     first_free_block: Option<i32>,
     /// The amount of elements the freelist can hold.
-    capacity: usize
+    capacity: i32
 }
 
 // Freelist implementations.
@@ -33,9 +38,9 @@ impl<T> Freelist<T>
 
     /// Get the size of the type in bytes (includes alignment).
     // This *can* be evauluated at compile-time, but is it always?
-    pub const fn type_size(&self) -> usize
+    pub const fn type_size(&self) -> i32
     {
-        size_of::<T>()
+        size_of::<T>() as i32
     }
 
     /// Check if the freelist has an empty (free) block.
@@ -54,9 +59,9 @@ impl<T> Freelist<T>
     /// * The vector can be truncated without `T` being dropped.
     /// * When extending the vector the memory is uninitialized (which is
     ///   actually better for performance in this case).
-    unsafe fn allocate(&mut self, element_count: usize)
+    unsafe fn allocate(&mut self, element_count: i32)
     {
-        self.heap_data.set_len(element_count);
+        self.heap_data.set_len(element_count as usize);
     }
 
     /// Get a mutable ref the block at the given index.
@@ -66,9 +71,9 @@ impl<T> Freelist<T>
     /// This is highly unsafe.  
     ///
     /// * Performs a non-primitive cast.
-    fn get_block_mut(&mut self, index: usize) -> &mut Block
+    fn get_block_mut(&mut self, index: i32) -> &mut Block
     {
-        unsafe { transmute(&mut self.heap_data[index]) }
+        unsafe { transmute(&mut self.heap_data[index as usize]) }
     }
 
     /// Get a const ref the block at the given index.
@@ -78,15 +83,15 @@ impl<T> Freelist<T>
     /// This is unsafe.
     ///
     /// * Performs a non-primitive cast.
-    fn get_block(&self, index: usize) -> &Block
+    fn get_block(&self, index: i32) -> &Block
     {
-        unsafe { transmute(&self.heap_data[index]) }
+        unsafe { transmute(&self.heap_data[index as usize]) }
     }
 
     /// Checks if the blocks are adjacent.
-    fn blocks_are_adjacent(&self, index_1: usize, index_2: usize) -> bool
+    fn blocks_are_adjacent(&self, index_1: i32, index_2: i32) -> bool
     {
-        index_1 + self.get_block(index_1).count as usize == index_2
+        index_1 + self.get_block(index_1).count == index_2
     }
 
     /// Shrink the freelist to the smallest it can be.
@@ -102,9 +107,9 @@ impl<T> Freelist<T>
         if !self.has_free_block() { return -1; };
         loop 
         {
-            let current_block_index = self.first_free_block.unwrap() as usize;
+            let current_block_index = self.first_free_block.unwrap();
             let current_block = self.get_block(current_block_index);
-            if !current_block.has_next_block() { return current_block_index as i32; }
+            if !current_block.has_next_block() { return current_block_index; }
         }
     }
 
@@ -115,8 +120,14 @@ impl<T> Freelist<T>
     // }
     
     /// Return the capacity of the freelist.
-    pub fn capacity(&self) -> usize 
+    pub fn capacity(&self) -> i32
     {
         self.capacity
+    } 
+
+    /// Get the capacity of the freelist in bytes.
+    pub fn capacity_bytes(&self) -> i32
+    {
+        self.capacity() * self.type_size()
     }
 }
