@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::mem::{size_of, transmute};
 use std::vec::Vec;
 
@@ -5,11 +7,11 @@ mod block;
 use block::Block;
 
 /// The maximum size (in bytes) of the freelist.
-const MAX_SIZE_BYTES: i32 = 2^32-1;
+const MAX_SIZE_BYTES: i32 = 2147483647;
 
 /// A cache coherent, heap allocated collection.
 /// This data structure uses i32 instead of usize due to the constrasints placed on `Block`.
-/// It will never require 64 bit indexing.
+/// It will never require 64 bit indexing.  What about smaller architectures?
 pub struct Freelist<T>
 {
     /// Pointer to the data located on the heap.
@@ -38,7 +40,7 @@ impl<T> Freelist<T>
 
     /// Get the size of the type in bytes (includes alignment).
     // This *can* be evauluated at compile-time, but is it always?
-    pub const fn type_size(&self) -> i32
+    pub const fn type_size_bytes(&self) -> i32
     {
         size_of::<T>() as i32
     }
@@ -59,9 +61,9 @@ impl<T> Freelist<T>
     /// * The vector can be truncated without `T` being dropped.
     /// * When extending the vector the memory is uninitialized (which is
     ///   actually better for performance in this case).
-    unsafe fn allocate(&mut self, element_count: i32)
+    fn allocate(&mut self, element_count: i32)
     {
-        self.heap_data.set_len(element_count as usize);
+        unsafe { self.heap_data.set_len(element_count as usize); }
     }
 
     /// Get a mutable ref the block at the given index.
@@ -104,7 +106,9 @@ impl<T> Freelist<T>
     /// Returns -1 if none is found.
     fn find_last_free_block(&self) -> i32 
     {
+        // No blocks to search.
         if !self.has_free_block() { return -1; };
+        // Search blocks.
         loop 
         {
             let current_block_index = self.first_free_block.unwrap();
@@ -115,11 +119,23 @@ impl<T> Freelist<T>
 
     /// Find the first free block that fits the size requirement.
     /// Returns the index to the block.
-    // fn find_first_free_block() -> usize
-    // {
-    // }
+    fn find_first_free_block(&self, element_count: i32) -> i32
+    {
+        // No blocks to search.
+        if !self.has_free_block() { return -1; };
+        // Search blocks.
+        loop 
+        {
+            let current_block_index = self.first_free_block.unwrap();
+            let current_block = self.get_block(current_block_index);
+            // Found large enough block.
+            if current_block.count >= element_count { return current_block_index }
+            // Could not find a block.
+            if !current_block.has_next_block() { return -1; };
+        }
+    }
     
-    /// Return the capacity of the freelist.
+    /// Get the capacity of the freelist.
     pub fn capacity(&self) -> i32
     {
         self.capacity
@@ -128,6 +144,6 @@ impl<T> Freelist<T>
     /// Get the capacity of the freelist in bytes.
     pub fn capacity_bytes(&self) -> i32
     {
-        self.capacity() * self.type_size()
+        self.capacity() * self.type_size_bytes()
     }
 }
