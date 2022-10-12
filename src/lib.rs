@@ -2,7 +2,8 @@ use std::mem::{size_of, transmute};
 use std::vec::Vec;
 
 /// A cache coherent, heap allocated collection.
-pub struct Freelist<T> {
+pub struct Freelist<T>
+{
     /// Pointer to the data located on the heap.
     heap_data: Vec<T>,
     /// Index to the first free block in the list.
@@ -11,7 +12,8 @@ pub struct Freelist<T> {
 
 /// Used to describe an open block in freelist::Freelist<T>.
 /// A block can consist of many blocks, if they are contiguous.
-struct Block {
+struct Block
+{
     /// How many of `T` can be fit into the current block.
     /// (A block can consist of many contiguous blocks)
     count: i32,
@@ -21,9 +23,11 @@ struct Block {
 }
 
 // Freelist implementations.
-impl<T> Freelist<T> {
+impl<T> Freelist<T>
+{
     /// Create a new, empty freelist.
-    pub fn new() -> Self {
+    pub fn new() -> Self
+    {
         // Need to assert the size of the type to ensure `Block` can fit.
         // This is currently done at run time, can't it be done at compile time?
         assert!(size_of::<T>() >= size_of::<Block>());
@@ -35,12 +39,14 @@ impl<T> Freelist<T> {
 
     /// Get the size of the type in bytes (includes alignment).
     // This *can* be evauluated at compile-time, but is it always?
-    pub const fn type_size(&self) -> usize {
+    pub const fn type_size(&self) -> usize
+    {
         size_of::<T>()
     }
 
     /// Check if the freelist has an empty (free) block.
-    pub fn has_free_block(&self) -> bool {
+    pub fn has_free_block(&self) -> bool
+    {
         self.first_free_block != None
     }
 
@@ -51,8 +57,10 @@ impl<T> Freelist<T> {
     /// This is unsafe.
     ///
     /// * The vector can be truncated without `T` being dropped.
-    /// * When extending the vector the memory is uninitialized (which is actually better for performance in this case).
-    unsafe fn allocate(&mut self, element_count: usize) {
+    /// * When extending the vector the memory is uninitialized (which is
+    ///   actually better for performance in this case).
+    unsafe fn allocate(&mut self, element_count: usize)
+    {
         self.heap_data.set_len(element_count);
     }
 
@@ -63,7 +71,8 @@ impl<T> Freelist<T> {
     /// This is highly unsafe.  
     ///
     /// * Performs a non-primitive cast.
-    unsafe fn get_block_mut(&mut self, index: usize) -> &mut Block {
+    unsafe fn get_block_mut(&mut self, index: usize) -> &mut Block
+    {
         transmute(&mut self.heap_data[index])
     }
 
@@ -74,7 +83,8 @@ impl<T> Freelist<T> {
     /// This is unsafe.
     ///
     /// * Performs a non-primitive cast.
-    unsafe fn get_block(&self, index: usize) -> &Block {
+    unsafe fn get_block(&self, index: usize) -> &Block
+    {
         transmute(&self.heap_data[index])
     }
 }

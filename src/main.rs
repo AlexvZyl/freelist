@@ -1,6 +1,7 @@
 use freelist::Freelist;
 
-fn main() {
+fn main()
+{
     let fl = Freelist::<i32>::new();
     print!("{}", fl.type_size());
 }
