@@ -7,7 +7,7 @@ pub struct Freelist<T> {
     heap_data: Vec<T>,
     /// Index to the first free block in the list.
     first_free_block: Option<i32>,
-} 
+}
 
 /// Used to describe an open block in freelist::Freelist<T>.
 /// A block can consist of many blocks, if they are contiguous.
@@ -29,10 +29,9 @@ impl<T> Freelist<T> {
         assert!(size_of::<T>() >= size_of::<Block>());
         Freelist {
             heap_data: Vec::with_capacity(0),
-            first_free_block: None
-
+            first_free_block: None,
         }
-    } 
+    }
 
     /// Get the size of the type in bytes (includes alignment).
     // This *can* be evauluated at compile-time, but is it always?
@@ -53,7 +52,7 @@ impl<T> Freelist<T> {
     ///
     /// * The vector can be truncated without `T` being dropped.
     /// * When extending the vector the memory is uninitialized (which is actually better for performance in this case).
-    unsafe fn allocate(&mut self, element_count:usize) {
+    unsafe fn allocate(&mut self, element_count: usize) {
         self.heap_data.set_len(element_count);
     }
 
