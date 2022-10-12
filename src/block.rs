@@ -7,11 +7,11 @@ pub struct Block
     pub count: i32,
     /// Index to the next free block in the freelist.
     // I want to use `Option` here, but it uses too much memory. :(
-    pub next_block_index: i32
+    pub next_block_index: i32,
 }
 
 // Block implementations.
-impl Block 
+impl Block
 {
     /// Checks if the block has a block that sits after it.
     pub fn has_next_block(&self) -> bool

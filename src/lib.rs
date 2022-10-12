@@ -12,7 +12,7 @@ pub struct Freelist<T>
     /// Index to the first free block in the list.
     first_free_block: Option<i32>,
     /// The amount of elements the freelist can hold.
-    capacity: usize
+    capacity: usize,
 }
 
 // Freelist implementations.
@@ -27,7 +27,7 @@ impl<T> Freelist<T>
         Freelist {
             heap_data: Vec::with_capacity(0),
             first_free_block: None,
-            capacity: 0
+            capacity: 0,
         }
     }
 
@@ -45,7 +45,8 @@ impl<T> Freelist<T>
     }
 
     /// Allocate enough memory for the amount of elements requested.
-    /// This is regarded as a low-level function and does not do any required checks.
+    /// This is regarded as a low-level function and does not do any required
+    /// checks.
     ///
     /// # Safety
     ///
@@ -90,21 +91,21 @@ impl<T> Freelist<T>
     }
 
     /// Shrink the freelist to the smallest it can be.
-    pub fn shrink_to_fit()
-    {
-
-    }
+    pub fn shrink_to_fit() {}
 
     /// Traverse the list to find the last free block.
     /// Returns -1 if none is found.
-    fn find_last_free_block(&self) -> i32 
+    fn find_last_free_block(&self) -> i32
     {
-        if !self.has_free_block() { return -1; };
-        loop 
-        {
+        if !self.has_free_block() {
+            return -1;
+        };
+        loop {
             let current_block_index = self.first_free_block.unwrap() as usize;
             let current_block = self.get_block(current_block_index);
-            if !current_block.has_next_block() { return current_block_index as i32; }
+            if !current_block.has_next_block() {
+                return current_block_index as i32;
+            }
         }
     }
 
@@ -113,9 +114,9 @@ impl<T> Freelist<T>
     // fn find_first_free_block() -> usize
     // {
     // }
-    
+
     /// Return the capacity of the freelist.
-    pub fn capacity(&self) -> usize 
+    pub fn capacity(&self) -> usize
     {
         self.capacity
     }
