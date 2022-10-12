@@ -8,7 +8,7 @@ pub struct Block
     /// (A block can consist of many contiguous blocks)
     pub count: i32,
     /// Index to the next free block in the freelist.
-    // I want to use `Option` here, but it uses too much memory. :(
+    // I want to use `Option` here, but it uses 8 bytes insread of 4.
     pub next_block_index: i32
 }
 
