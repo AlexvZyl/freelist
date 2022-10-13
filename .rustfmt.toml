@@ -14,6 +14,5 @@ format_macro_bodies = true
 # Indentation.
 indent_style = "Visual"
 
-
 # Comments.
 wrap_comments = true

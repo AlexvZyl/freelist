@@ -101,35 +101,45 @@ impl<T> Freelist<T>
     pub fn shrink_to_fit() {}
 
     /// Traverse the list to find the last free block.
-    /// Returns -1 if none is found.
-    fn find_last_free_block(&self) -> i32
+    /// Returns `None` if none is found.
+    fn find_last_free_block(&self) -> Option<i32>
     {
-        // No blocks to search.
-        if !self.has_free_block() { return -1; };
-        // Search blocks.
-        loop 
+        // Use first free block to start searching.
+        match self.first_free_block
         {
-            let current_block_index = self.first_free_block.unwrap();
-            let current_block = self.get_block(current_block_index);
-            if !current_block.has_next_block() { return current_block_index; }
+            None => return None,
+
+            // Search blocks.
+            Some(..) =>
+            loop 
+            {
+                let current_block_index = self.first_free_block.unwrap();
+                let current_block = self.get_block(current_block_index);
+                if !current_block.has_next_block() { return Some(current_block_index); }
+            }
         }
     }
 
     /// Find the first free block that fits the size requirement.
-    /// Returns the index to the block.
-    fn find_first_free_block(&self, element_count: i32) -> i32
+    /// Returns the index to the block, or `None` if there is none.
+    fn find_adequate_block(&self, element_count: i32) -> Option<i32>
     {
-        // No blocks to search.
-        if !self.has_free_block() { return -1; };
-        // Search blocks.
-        loop 
+        // Use first free block to start searching.
+        match self.first_free_block
         {
-            let current_block_index = self.first_free_block.unwrap();
-            let current_block = self.get_block(current_block_index);
-            // Found large enough block.
-            if current_block.count >= element_count { return current_block_index }
-            // Could not find a block.
-            if !current_block.has_next_block() { return -1; };
+            None => return None,
+
+            // Search blocks.
+            Some(..) =>
+            loop 
+            {
+                let current_block_index = self.first_free_block.unwrap();
+                let current_block = self.get_block(current_block_index);
+                // Found large enough block.
+                if current_block.count >= element_count { return Some(current_block_index) }
+                // Could not find a block.
+                if !current_block.has_next_block() { return None; };
+            }
         }
     }
     
@@ -142,6 +152,6 @@ impl<T> Freelist<T>
     /// Get the capacity of the freelist in bytes.
     pub fn capacity_bytes(&self) -> i32
     {
-        self.capacity() * self.type_size_bytes()
+        self.capacity * self.type_size_bytes()
     }
 }
