@@ -105,13 +105,15 @@ impl<T> Freelist<T>
             None => return None,
 
             // Search blocks.
-            Some(..) =>
-            loop 
+            Some(..) => loop
             {
                 let current_block_index = self.first_free_block.unwrap();
                 let current_block = self.get_block(current_block_index);
-                if !current_block.has_next_block() { return Some(current_block_index); }
-            }
+                if !current_block.has_next_block()
+                {
+                    return Some(current_block_index);
+                }
+            },
         }
     }
 
@@ -125,16 +127,21 @@ impl<T> Freelist<T>
             None => return None,
 
             // Search blocks.
-            Some(..) =>
-            loop 
+            Some(..) => loop
             {
                 let current_block_index = self.first_free_block.unwrap();
                 let current_block = self.get_block(current_block_index);
                 // Found large enough block.
-                if current_block.count >= element_count { return Some(current_block_index) }
+                if current_block.count >= element_count
+                {
+                    return Some(current_block_index);
+                }
                 // Could not find a block.
-                if !current_block.has_next_block() { return None; };
-            }
+                if !current_block.has_next_block()
+                {
+                    return None;
+                };
+            },
         }
     }
 
@@ -142,20 +149,11 @@ impl<T> Freelist<T>
     pub fn capacity_blocks(&self) -> i32 { self.heap_data.len() as i32 }
 
     /// Get the capacity of the freelist in bytes.
-    pub fn capacity_bytes(&self) -> i32
-    {
-        self.capacity_blocks() * self.type_size_bytes()
-    }
+    pub fn capacity_bytes(&self) -> i32 { self.capacity_blocks() * self.type_size_bytes() }
 
     /// Get the number of allocated blocks.
-    pub fn used_blocks(&self) -> i32
-    {
-        self.used_blocks 
-    }
+    pub fn used_blocks(&self) -> i32 { self.used_blocks }
 
     /// Get the amount of free blocks.
-    pub fn free_blocks(&self) -> i32 
-    {
-        self.capacity_blocks() - self.used_blocks()
-    }
+    pub fn free_blocks(&self) -> i32 { self.capacity_blocks() - self.used_blocks() }
 }
