@@ -10,7 +10,7 @@ use block::Block;
 const MAX_SIZE_BYTES: i32 = 2147483647;
 
 /// A cache coherent, heap allocated collection.
-/// This data structure uses i32 instead of usize due to the constrasints placed
+/// This data structure uses i32 instead of usize due to the constraints placed
 /// on `Block`. It will never require 64 bit indexing.  What about smaller
 /// architectures?
 pub struct Freelist<T>
@@ -19,8 +19,8 @@ pub struct Freelist<T>
     heap_data: Vec<T>,
     /// Index to the first free block in the list.
     first_free_block: Option<i32>,
-    /// The amount of elements the freelist can hold.
-    capacity: i32,
+    /// The number of allocated blocks.
+    used_blocks: i32,
 }
 
 // Freelist implementations.
@@ -34,7 +34,7 @@ impl<T> Freelist<T>
         assert!(size_of::<T>() >= size_of::<Block>());
         Freelist { heap_data: Vec::with_capacity(0),
                    first_free_block: None,
-                   capacity: 0 }
+                   used_blocks: 0 }
     }
 
     /// Get the size of the type in bytes (includes alignment).
@@ -59,7 +59,7 @@ impl<T> Freelist<T>
     {
         unsafe {
             self.heap_data.set_len(element_count as usize);
-        }
+        };
     }
 
     /// Get a mutable ref the block at the given index.
@@ -97,7 +97,7 @@ impl<T> Freelist<T>
 
     /// Traverse the list to find the last free block.
     /// Returns `None` if none is found.
-    fn find_last_free_block(&self) -> Option<i32>
+    fn last_block(&self) -> Option<i32>
     {
         // Use first free block to start searching.
         match self.first_free_block
@@ -117,7 +117,7 @@ impl<T> Freelist<T>
 
     /// Find the first free block that fits the size requirement.
     /// Returns the index to the block, or `None` if there is none.
-    fn find_adequate_block(&self, element_count: i32) -> Option<i32>
+    fn first_fit(&self, element_count: i32) -> Option<i32>
     {
         // Use first free block to start searching.
         match self.first_free_block
@@ -139,11 +139,23 @@ impl<T> Freelist<T>
     }
 
     /// Get the capacity of the freelist.
-    pub fn capacity(&self) -> i32 { self.capacity }
+    pub fn capacity_blocks(&self) -> i32 { self.heap_data.len() as i32 }
 
     /// Get the capacity of the freelist in bytes.
     pub fn capacity_bytes(&self) -> i32
     {
-        self.capacity * self.type_size_bytes()
+        self.capacity_blocks() * self.type_size_bytes()
+    }
+
+    /// Get the number of allocated blocks.
+    pub fn used_blocks(&self) -> i32
+    {
+        self.used_blocks 
+    }
+
+    /// Get the amount of free blocks.
+    pub fn free_blocks(&self) -> i32 
+    {
+        self.capacity_blocks() - self.used_blocks()
     }
 }
