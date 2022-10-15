@@ -125,10 +125,13 @@ impl<T> Freelist<T>
             {
                 let mut current_block_index = self.first_free_block.unwrap();
                 let mut current_block = self.get_block(current_block_index);
-                loop 
+                loop
                 {
                     // Found the last block.
-                    if !current_block.has_next_block() { return Some(current_block_index); };
+                    if !current_block.has_next_block()
+                    {
+                        return Some(current_block_index);
+                    };
                     // Get next block.
                     current_block_index = current_block.next_block_index;
                     current_block = self.get_block(current_block_index);
@@ -156,7 +159,7 @@ impl<T> Freelist<T>
                 let mut prev_block_index = None;
                 let mut current_block_index = self.first_free_block.unwrap();
                 let mut current_block = self.get_block(current_block_index);
-                loop 
+                loop
                 {
                     // Found large enough block.
                     if current_block.count >= element_count { return (prev_block_index, Some(current_block_index)) }
@@ -183,10 +186,7 @@ impl<T> Freelist<T>
     pub fn capacity_blocks(&self) -> i32 { self.heap_data.len() as i32 }
 
     /// Get the capacity of the freelist in bytes.
-    pub fn capacity_bytes(&self) -> i32
-    {
-        self.capacity_blocks() * self.type_size_bytes()
-    }
+    pub fn capacity_bytes(&self) -> i32 { self.capacity_blocks() * self.type_size_bytes() }
 
     /// Get the number blocks currently being used.
     pub fn used_blocks(&self) -> i32
