@@ -66,7 +66,7 @@ impl<T> Freelist<T>
     ///
     /// # Safety
     ///
-    /// This is highly unsafe.  
+    /// This is unsafe.  
     ///
     /// * Performs a non-primitive cast.
     fn get_block_mut(&mut self, index: i32) -> &mut Block
@@ -157,15 +157,27 @@ impl<T> Freelist<T>
         self.capacity_blocks() * self.type_size_bytes()
     }
 
-    /// Get the number of allocated blocks.
+    /// Get the number blocks currently being used.
     pub fn used_blocks(&self) -> i32
     {
         self.used_blocks 
+    }
+
+    /// Get the amount of memory currently used.
+    pub fn used_bytes(&self) -> i32
+    {
+        self.used_blocks() * self.type_size_bytes()
     }
 
     /// Get the amount of free blocks.
     pub fn free_blocks(&self) -> i32 
     {
         self.capacity_blocks() - self.used_blocks()
+    }
+
+    /// Get the amount of free memory.
+    pub fn free_bytes(&self) -> i32
+    {
+        self.free_blocks() * self.type_size_bytes()
     }
 }
