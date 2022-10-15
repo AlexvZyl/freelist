@@ -36,14 +36,7 @@ impl<T> Freelist<T>
                    first_free_block: None,
                    used_blocks: 0 }
     }
-
-    /// Get the size of the type in bytes (includes alignment).
-    // This *can* be evauluated at compile-time, but is it always?
-    pub const fn type_size_bytes(&self) -> i32 { size_of::<T>() as i32 }
-
-    /// Check if the freelist has an empty (free) block.
-    pub fn has_free_block(&self) -> bool { self.first_free_block != None }
-
+ 
     /// Allocate enough memory for the amount of elements requested.
     /// This is regarded as a low-level function and does not do any required
     /// checks.
@@ -66,6 +59,7 @@ impl<T> Freelist<T>
     ///
     /// # Safety
     ///
+    /// This is unsafe.  
     ///
     /// * Performs a non-primitive cast.
     fn get_block_mut(&mut self, index: i32) -> &mut Block
@@ -86,21 +80,44 @@ impl<T> Freelist<T>
     }
 
     /// Checks if the blocks are adjacent.
-    fn blocks_are_adjacent(&self, index_1: i32, index_2: i32) -> bool
+    fn blocks_are_adjacent(&self, first_block_index: i32, second_block_index: i32) -> bool
     {
-        index_1 + self.get_block(index_1).count == index_2
+        first_block_index + self.get_block(first_block_index).count == second_block_index
     }
 
-    /// Shrink the freelist to the smallest it can be.
-    pub fn shrink_to_fit() {}
+    /// Find and commit a block that fits the size requirement.
+    /// If it does not find a block large enough it will resize.  The caller is guaranteed to get a
+    /// block.
+    fn commit_block(&mut self, block_count:i32) -> i32
+    {
+        let (prev_block_ixd, block_idx) = self.first_fit(block_count);
+        match block_idx 
+        {
+            // No blocks are large enough.
+            None => 
+            {
+                // TODO: Allocate more memory if no blocks are found.
+                // Once more memory has been allocated the last block can be used.
+                return 0;
+            }
+
+            // Commit the block.
+            Some(..) => 
+            {
+                
+                return 0;
+            }
+        }
+    }
 
     /// Traverse the list to find the last free block.
-    /// Returns `None` if none is found.
+    /// Returns `None` if there are no free blocks.
     fn last_block(&self) -> Option<i32>
     {
         // Use first free block to start searching.
         match self.first_free_block
         {
+            // There are no blocks.
             None => return None,
 
             // Search blocks.
@@ -123,9 +140,10 @@ impl<T> Freelist<T>
     /// Find the first free block that fits the size requirement.
     ///
     /// Returns a tuple that contains:
-    /// 0: Index of the free block before the one found that first.
+    /// 0: Index of the free block before found one.
     /// 1: Index to the block that fits.
-    /// It is done to prevent having to search the list more than once.
+    /// The previous block is sometimes required and this prevents havind to search the list more
+    /// than once.
     fn first_fit(&self, element_count: i32) -> (Option<i32>, Option<i32>)
     {
         // Use first free block to start searching.
@@ -152,6 +170,14 @@ impl<T> Freelist<T>
             }
         }
     }
+    
+    /// Get the size of the type in bytes (includes alignment).
+    // This *can* be evauluated at compile-time, but is it always?
+    pub const fn type_size_bytes(&self) -> i32 { size_of::<T>() as i32 }
+
+    /// Check if the freelist has an empty (free) block.
+    pub fn has_free_block(&self) -> bool { self.first_free_block != None }
+
 
     /// Get the capacity of the freelist.
     pub fn capacity_blocks(&self) -> i32 { self.heap_data.len() as i32 }
