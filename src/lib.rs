@@ -105,15 +105,19 @@ impl<T> Freelist<T>
             None => return None,
 
             // Search blocks.
-            Some(..) => loop
+            Some(..) =>
             {
-                let current_block_index = self.first_free_block.unwrap();
-                let current_block = self.get_block(current_block_index);
-                if !current_block.has_next_block()
+                let mut current_block_index = self.first_free_block.unwrap();
+                let mut current_block = self.get_block(current_block_index);
+                loop 
                 {
-                    return Some(current_block_index);
+                    // Found the last block.
+                    if !current_block.has_next_block() { return Some(current_block_index); };
+                    // Get next block.
+                    current_block_index = current_block.next_block_index;
+                    current_block = self.get_block(current_block_index);
                 }
-            },
+            }
         }
     }
 
@@ -127,21 +131,20 @@ impl<T> Freelist<T>
             None => return None,
 
             // Search blocks.
-            Some(..) => loop
-            {
-                let current_block_index = self.first_free_block.unwrap();
-                let current_block = self.get_block(current_block_index);
-                // Found large enough block.
-                if current_block.count >= element_count
+            Some(..) => {
+                let mut current_block_index = self.first_free_block.unwrap();
+                let mut current_block = self.get_block(current_block_index);
+                loop 
                 {
-                    return Some(current_block_index);
+                    // Found large enough block.
+                    if current_block.count >= element_count { return Some(current_block_index) }
+                    // Could not find a block.
+                    if !current_block.has_next_block() { return None; };
+                    // Get next block.
+                    current_block_index = current_block.next_block_index;
+                    current_block = self.get_block(current_block_index);
                 }
-                // Could not find a block.
-                if !current_block.has_next_block()
-                {
-                    return None;
-                };
-            },
+            }
         }
     }
 
