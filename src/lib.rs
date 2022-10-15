@@ -66,7 +66,6 @@ impl<T> Freelist<T>
     ///
     /// # Safety
     ///
-    /// This is unsafe.  
     ///
     /// * Performs a non-primitive cast.
     fn get_block_mut(&mut self, index: i32) -> &mut Block
@@ -122,25 +121,31 @@ impl<T> Freelist<T>
     }
 
     /// Find the first free block that fits the size requirement.
-    /// Returns the index to the block, or `None` if there is none.
-    fn first_fit(&self, element_count: i32) -> Option<i32>
+    ///
+    /// Returns a tuple that contains:
+    /// 0: Index of the free block before the one found that first.
+    /// 1: Index to the block that fits.
+    /// It is done to prevent having to search the list more than once.
+    fn first_fit(&self, element_count: i32) -> (Option<i32>, Option<i32>)
     {
         // Use first free block to start searching.
         match self.first_free_block
         {
-            None => return None,
+            None => return (None, None),
 
             // Search blocks.
             Some(..) => {
+                let mut prev_block_index = None;
                 let mut current_block_index = self.first_free_block.unwrap();
                 let mut current_block = self.get_block(current_block_index);
                 loop 
                 {
                     // Found large enough block.
-                    if current_block.count >= element_count { return Some(current_block_index) }
+                    if current_block.count >= element_count { return (prev_block_index, Some(current_block_index)) }
                     // Could not find a block.
-                    if !current_block.has_next_block() { return None; };
-                    // Get next block.
+                    if !current_block.has_next_block() { return (prev_block_index, None); };
+                    // Update blocks.
+                    prev_block_index = Some(current_block_index);
                     current_block_index = current_block.next_block_index;
                     current_block = self.get_block(current_block_index);
                 }
