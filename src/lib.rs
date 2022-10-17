@@ -48,11 +48,9 @@ impl<T> Freelist<T>
     /// * The vector can be truncated without `T` being dropped.
     /// * When extending the vector the memory is uninitialized (which is
     ///   actually better for performance in this case).
-    fn allocate(&mut self, element_count: i32)
+    unsafe fn allocate(&mut self, element_count: i32)
     {
-        unsafe {
-            self.heap_data.set_len(element_count as usize);
-        };
+        self.heap_data.set_len(element_count as usize);
     }
 
     /// Get a mutable ref the block at the given index.
