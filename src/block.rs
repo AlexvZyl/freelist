@@ -2,14 +2,15 @@
 /// A block can consist of many blocks, if they are contiguous.
 /// This struct does not use `usize` since I want to force it to
 /// be 8 bytes (64 bits).
+// I want to use `Option` in this type, but it uses 8 bytes insread of 4.
+// Instead using an API to get this functionality, is this a significant overhead?
 pub struct Block
 {
     /// How many of `T` can be fit into the current block.
     /// (A block can consist of many contiguous blocks)
-    pub count: i32,
+    block_count: i32,
     /// Index to the next free block in the freelist.
-    // I want to use `Option` here, but it uses 8 bytes insread of 4.
-    pub next_block_index: i32,
+    next_block_index: i32,
 }
 
 // Block implementations.
@@ -17,4 +18,24 @@ impl Block
 {
     /// Checks if the block has a block that sits after it.
     pub fn has_next_block(&self) -> bool { self.next_block_index != -1 }
+
+    /// Get the index of the next block.
+    pub fn next_block_index(&self) -> Option<i32>
+    {
+        match self.next_block_index 
+        {
+            -1 => { None }
+            _  => { Some(self.next_block_index) }
+        }
+    }
+
+    /// Get the amount of blocks that can be fit into this block.
+    pub fn block_count(&self) -> Option<i32>
+    {
+        match self.block_count
+        {
+            -1 => { None }
+            _  => { Some(self.block_count) }
+        }
+    }
 }
