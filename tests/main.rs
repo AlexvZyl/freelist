@@ -1,6 +1,3 @@
 use freelist::Freelist;
 
-fn main()
-{
-
-}
+fn main() {}

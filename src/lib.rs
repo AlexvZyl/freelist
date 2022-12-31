@@ -36,10 +36,10 @@ impl<T> Freelist<T>
                    first_free_block: None,
                    used_blocks: 0 }
     }
- 
+
     /// Allocate enough memory for the amount of elements requested.
-    /// This is regarded as a low-level function and does not do any checks, manipulation or
-    /// lifetime management.
+    /// This is regarded as a low-level function and does not do any checks,
+    /// manipulation or lifetime management.
     /// See this as a call to `malloc()`, but with the existing data being
     /// copied over.
     ///
@@ -64,11 +64,10 @@ impl<T> Freelist<T>
     /// This is highly unsafe.
     ///
     /// * `Freelist::allocate()` is called.
-    unsafe fn extend_by(&mut self, block_count: i32) 
+    unsafe fn extend_by(&mut self, block_count: i32)
     {
         // Allocate the required memory.
         self.allocate(self.capacity_blocks() + block_count);
-        
     }
 
     /// Get a mutable ref the block at the given index.
@@ -90,10 +89,7 @@ impl<T> Freelist<T>
     /// This is unsafe.
     ///
     /// * Performs a non-primitive cast.
-    unsafe fn get_block(&self, index: i32) -> &Block
-    {
-        transmute(&self.heap_data[index as usize])
-    }
+    unsafe fn get_block(&self, index: i32) -> &Block { transmute(&self.heap_data[index as usize]) }
 
     /// Checks if the blocks are adjacent.
     ///
@@ -104,19 +100,19 @@ impl<T> Freelist<T>
     /// * Performs a non-primitive cast when checknig adjacency.
     unsafe fn blocks_are_adjacent(&self, first_block_index: i32, second_block_index: i32) -> bool
     {
-            first_block_index + self.get_block(first_block_index).element_count  == second_block_index
+        first_block_index + self.get_block(first_block_index).element_count == second_block_index
     }
 
     /// Find and commit a block that fits the size requirement.
-    /// If it does not find a block large enough it will resize.  The caller is guaranteed to get a
-    /// block.
-    fn find_and_commit_block(&mut self, block_count:i32) -> i32
+    /// If it does not find a block large enough it will resize.  The caller is
+    /// guaranteed to get a block.
+    fn find_and_commit_block(&mut self, block_count: i32) -> i32
     {
         let (prev_block_ixd, block_idx) = self.find_first_fit(block_count);
-        match block_idx 
+        match block_idx
         {
             // No blocks are large enough.
-            None => 
+            None =>
             {
                 // TODO: Allocate more memory if no blocks are found.
                 // Once more memory has been allocated the last block can be used.
@@ -124,9 +120,8 @@ impl<T> Freelist<T>
             }
 
             // Commit the block.
-            Some(..) => 
+            Some(..) =>
             {
-                
                 return 0;
             }
         }
@@ -149,7 +144,8 @@ impl<T> Freelist<T>
                 // Has to get a block, which does a non-primitive cast.
                 unsafe {
                     let mut current_block = self.get_block(current_block_index);
-                    loop {
+                    loop
+                    {
                         // Found the last block.
                         if !current_block.has_next_block()
                         {
@@ -169,8 +165,8 @@ impl<T> Freelist<T>
     /// Returns a tuple that contains:
     /// 0: Index of the free block before found one.
     /// 1: Index to the block that fits.
-    /// The previous block is sometimes required and this prevents having to search the list more
-    /// than once.
+    /// The previous block is sometimes required and this prevents having to
+    /// search the list more than once.
     fn find_first_fit(&self, element_count: i32) -> (Option<i32>, Option<i32>)
     {
         // Use first free block to start searching.
@@ -203,7 +199,7 @@ impl<T> Freelist<T>
                             None => return (prev_block_index, None),
 
                             // Update search.
-                            Some(..) => 
+                            Some(..) =>
                             {
                                 prev_block_index = Some(current_block_index);
                                 current_block_index = current_block.next_block_index().unwrap();
@@ -215,7 +211,7 @@ impl<T> Freelist<T>
             }
         }
     }
-    
+
     /// Get the size of the type in bytes (includes alignment).
     // This *can* be evauluated at compile-time, but is it always?
     pub const fn type_size_bytes(&self) -> i32 { size_of::<T>() as i32 }

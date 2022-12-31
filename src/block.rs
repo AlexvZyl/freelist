@@ -3,7 +3,8 @@
 // This struct does not use `usize` since I want to force it to
 // be 8 bytes (64 bits).
 // I want to use `Option` in this type, but it uses 8 bytes insread of 4.
-// Instead using an API to get this functionality, is this a significant overhead?
+// Instead using an API to get this functionality, is this a significant
+// overhead?
 pub struct Block
 {
     /// How many elements can be fit into the block.
@@ -28,10 +29,10 @@ impl Block
     // Using an API to make sure we keep the size at 8 bytes.
     pub fn next_block_index(&self) -> Option<i32>
     {
-        match self.next_block_index 
+        match self.next_block_index
         {
-            -1 => { None }
-            _  => { Some(self.next_block_index) }
+            -1 => None,
+            _ => Some(self.next_block_index),
         }
-    }    
+    }
 }
