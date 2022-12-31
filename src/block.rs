@@ -2,8 +2,8 @@
 /// A block can consist of many elements, if they are contiguous.
 // This struct does not use `usize` since I want to force it to
 // be 8 bytes (64 bits).
-// I want to use `Option` in this type, but it uses 8 bytes insread of 4.
-// Instead using an API to get this functionality, is this a significant
+// I want to use `Option` in this type, but it uses 8 bytes instead of 4.
+// Instead, using an API to get this functionality.  Is there a significant
 // overhead?
 pub struct Block
 {
@@ -44,7 +44,7 @@ impl Block
     }
 
     /// Set the block to have no next block.
-    pub fn set_no_next_block(&mut self)
+    pub fn set_next_block_none(&mut self)
     {
         self.next_block_index = -1;
     }

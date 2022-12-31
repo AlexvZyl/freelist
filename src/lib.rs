@@ -37,7 +37,7 @@ impl<T> Freelist<T>
                    used_blocks: 0 }
     }
 
-    /// Allocate enough memory for the amount of elements requested.
+    /// Allocate enough memory for the amount (count) of elements requested.
     /// This is regarded as a low-level function and does not do any checks,
     /// manipulation or lifetime management.
     /// See this as a call to `malloc()`, but with the existing data being
@@ -50,10 +50,10 @@ impl<T> Freelist<T>
     /// * The vector can be truncated without `T` being dropped.
     /// * When extending the vector, the memory is uninitialized (which is
     ///   actually better for performance).
-    unsafe fn allocate(&mut self, block_count: i32)
+    unsafe fn allocate(&mut self, element_count: i32)
     {
         // Does this copy all of the data to the new vector?
-        self.heap_data.set_len(block_count as usize);
+        self.heap_data.set_len(element_count as usize);
     }
 
     /// Increases the amount of memory available by the specified amount.  
@@ -135,7 +135,7 @@ impl<T> Freelist<T>
         // Getting blocks, performs non-primitive casts.
         unsafe {
 
-            let mut block = self.get_block_mut(block_idx);
+            let block = self.get_block(block_idx);
 
             // Entire block is consumed.
             if element_count == block.element_count
@@ -150,7 +150,7 @@ impl<T> Freelist<T>
                         let prev_block = self.get_block_mut(prev_block_index.unwrap());
                         match next_block
                         {
-                            None => prev_block.set_no_next_block(),
+                            None => prev_block.set_next_block_none(),
                             Some(..) => prev_block.connect(next_block.unwrap()),
                         }
                     }
@@ -160,7 +160,14 @@ impl<T> Freelist<T>
             // Part of block is consumed.
             else if element_count < block.element_count
             {
-                block.element_count -= element_count  
+                // Craete new block with reduced size.
+                let new_index = block_idx + element_count;
+                self.create_new_block(new_index, block.element_count - element_count, block.get_next_block_index());
+                // Update the prev block.
+                if prev_block_index != None
+                {
+                    self.get_block_mut(prev_block_index.unwrap()).connect(new_index);
+                }
             }
 
             // TODO: Throw. Too many elements for block.
@@ -172,33 +179,50 @@ impl<T> Freelist<T>
     }
 
     /// Connect two blocks based on the index.
-    fn connect_blocks(&mut self, first_block_index: i32, second_block_index: i32)
+    ///
+    /// # Safety.
+    ///
+    /// This is unsafe.
+    ///
+    /// * Non-primitive casts are performed when getting the blocks.
+    unsafe fn connect_blocks(&mut self, first_block_index: i32, second_block_index: i32)
     {
-        unsafe {
-            self.get_block_mut(first_block_index).connect(second_block_index);
-        }
+        self.get_block_mut(first_block_index).connect(second_block_index);
     }
 
     /// Create a new block at the index with the given values and return a mutable reference.
-    fn create_new_block_mut(&mut self, block_index: i32, element_count: i32, next_block_index: Option<i32>) -> &mut Block
+    /// 
+    /// # Safety.
+    /// 
+    /// This is unsafe.
+    ///
+    /// * Data is being written directly to a region of memory.
+    unsafe fn create_new_block_mut(&mut self, block_index: i32, element_count: i32, next_block_index: Option<i32>) -> &mut Block
     {
-        unsafe {
-            let mut new_block = self.get_block_mut(block_index);
-            new_block.set_next_block_index(next_block_index);
-            new_block.element_count = element_count;
-            return new_block
-        }
+        let mut new_block = self.get_block_mut(block_index);
+        new_block.set_next_block_index(next_block_index);
+        new_block.element_count = element_count;
+        return new_block
     }
 
     /// Create a new block at the index with the given values and return a const reference.
-    fn create_new_block(&mut self, block_index: i32, element_count: i32, next_block_index: Option<i32>) -> &Block 
+    ///
+    /// # Safety.
+    ///
+    /// This is unsafe.
+    ///
+    /// * Data is being written directly to a region of memory.
+    // Is puting the mut version of the function inside of the constant version good practice?
+    unsafe fn create_new_block(&mut self, block_index: i32, element_count: i32, next_block_index: Option<i32>) -> &Block 
     {
         self.create_new_block_mut(block_index, element_count, next_block_index)
     }
 
     /// Traverse the list to find the last free block.
     /// Returns `None` if there are no free blocks.
-    fn last_block(&self) -> Option<i32>
+    // Should I rather keep track of the last block instead of searching for it?  Will depend on
+    // how much this function is called...
+    fn find_last_block(&self) -> Option<i32>
     {
         // Use first free block to start searching.
         match self.first_free_block
