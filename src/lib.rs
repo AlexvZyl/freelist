@@ -108,21 +108,24 @@ impl<T> Freelist<T>
     /// guaranteed to get a block.
     fn find_and_commit_block(&mut self, element_count: i32) -> i32
     {
-        let (prev_block_ixd, block_idx) = self.find_first_fit(element_count);
-        match block_idx
+        let (prev_block_index, block_index) = self.find_first_fit(element_count);
+        match block_index
         {
             // No blocks are large enough.
             None =>
             {
-                // TODO: Allocate more memory if no blocks are found.
-                // Once more memory has been allocated the last block can be used.
-                return block_idx.unwrap();
+                // Grow to fit new block.
+                self.grow_capacity();
+                // Search again.  This is not the most optimal way of doing it.  Will lead to
+                // searching over blocks that we know are too small.
+                self.find_and_commit_block(element_count)
             }
 
             // Commit the block.
             Some(..) =>
             {
-                return block_idx.unwrap();
+                self.commit_block(prev_block_index, block_index.unwrap(), element_count);
+                return block_index.unwrap();
             }
         }
     }
@@ -176,6 +179,14 @@ impl<T> Freelist<T>
 
             }
         }
+    }
+
+    /// Increase the capacity of the freelist.
+    /// This function will be exposed to the user so that they can determine how the freelist
+    /// should grow.
+    fn grow_capacity(&mut self)
+    {
+
     }
 
     /// Connect two blocks based on the index.
