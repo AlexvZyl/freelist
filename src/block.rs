@@ -8,7 +8,7 @@ pub struct Block
 {
     /// How many elements can be fit into the block.
     /// (A block can consist of many contiguous elements)
-    // Shiuld this be manioulated via an API instead of directly?
+    // Should this be manipulated via an API instead of directly?
     pub element_count: i32,
     /// Index to the next free block in the freelist.
     next_block_index: i32,
