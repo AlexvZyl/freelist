@@ -106,9 +106,9 @@ impl<T> Freelist<T>
     /// Find and commit a block that fits the size requirement.
     /// If it does not find a block large enough it will resize.  The caller is
     /// guaranteed to get a block.
-    fn find_and_commit_block(&mut self, block_count: i32) -> i32
+    fn find_and_commit_block(&mut self, element_count: i32) -> i32
     {
-        let (prev_block_ixd, block_idx) = self.find_first_fit(block_count);
+        let (prev_block_ixd, block_idx) = self.find_first_fit(element_count);
         match block_idx
         {
             // No blocks are large enough.
@@ -116,15 +116,84 @@ impl<T> Freelist<T>
             {
                 // TODO: Allocate more memory if no blocks are found.
                 // Once more memory has been allocated the last block can be used.
-                return 0;
+                return block_idx.unwrap();
             }
 
             // Commit the block.
             Some(..) =>
             {
-                return 0;
+                return block_idx.unwrap();
             }
         }
+    }
+
+    /// Commit the block at the index and update the blocks.
+    // This function has a lot of match blocks, can this be reduced?  This is due to the extensive
+    // use of Option<T>.
+    fn commit_block(&mut self, prev_block_index: Option<i32>, block_idx: i32, element_count: i32)
+    {
+        // Getting blocks, performs non-primitive casts.
+        unsafe {
+
+            let mut block = self.get_block_mut(block_idx);
+
+            // Entire block is consumed.
+            if element_count == block.element_count
+            {
+                match prev_block_index
+                {
+                    None => self.first_free_block = block.get_next_block_index(),
+
+                    Some(..) => 
+                    {
+                        let next_block = block.get_next_block_index();
+                        let prev_block = self.get_block_mut(prev_block_index.unwrap());
+                        match next_block
+                        {
+                            None => prev_block.set_no_next_block(),
+                            Some(..) => prev_block.connect(next_block.unwrap()),
+                        }
+                    }
+                }
+            }
+            
+            // Part of block is consumed.
+            else if element_count < block.element_count
+            {
+                block.element_count -= element_count  
+            }
+
+            // TODO: Throw. Too many elements for block.
+            else 
+            {
+
+            }
+        }
+    }
+
+    /// Connect two blocks based on the index.
+    fn connect_blocks(&mut self, first_block_index: i32, second_block_index: i32)
+    {
+        unsafe {
+            self.get_block_mut(first_block_index).connect(second_block_index);
+        }
+    }
+
+    /// Create a new block at the index with the given values and return a mutable reference.
+    fn create_new_block_mut(&mut self, block_index: i32, element_count: i32, next_block_index: Option<i32>) -> &mut Block
+    {
+        unsafe {
+            let mut new_block = self.get_block_mut(block_index);
+            new_block.set_next_block_index(next_block_index);
+            new_block.element_count = element_count;
+            return new_block
+        }
+    }
+
+    /// Create a new block at the index with the given values and return a const reference.
+    fn create_new_block(&mut self, block_index: i32, element_count: i32, next_block_index: Option<i32>) -> &Block 
+    {
+        self.create_new_block_mut(block_index, element_count, next_block_index)
     }
 
     /// Traverse the list to find the last free block.
@@ -152,7 +221,7 @@ impl<T> Freelist<T>
                             return Some(current_block_index);
                         };
                         // Get next block.
-                        current_block_index = current_block.next_block_index().unwrap();
+                        current_block_index = current_block.get_next_block_index().unwrap();
                         current_block = self.get_block(current_block_index);
                     }
                 }
@@ -193,7 +262,7 @@ impl<T> Freelist<T>
                         }
 
                         // Check the next block.
-                        match current_block.next_block_index()
+                        match current_block.get_next_block_index()
                         {
                             // No block found.
                             None => return (prev_block_index, None),
@@ -202,7 +271,7 @@ impl<T> Freelist<T>
                             Some(..) =>
                             {
                                 prev_block_index = Some(current_block_index);
-                                current_block_index = current_block.next_block_index().unwrap();
+                                current_block_index = current_block.get_next_block_index().unwrap();
                                 current_block = self.get_block(current_block_index);
                             }
                         }
