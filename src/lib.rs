@@ -37,7 +37,7 @@ impl<T> Freelist<T>
                    used_blocks: 0 }
     }
 
-    /// Allocate enough memory for the amount of elements requested.
+    /// Allocate enough memory for the amount (count) of elements requested.
     /// This is regarded as a low-level function and does not do any checks,
     /// manipulation or lifetime management.
     /// See this as a call to `malloc()`, but with the existing data being
@@ -50,10 +50,10 @@ impl<T> Freelist<T>
     /// * The vector can be truncated without `T` being dropped.
     /// * When extending the vector, the memory is uninitialized (which is
     ///   actually better for performance).
-    unsafe fn allocate(&mut self, block_count: i32)
+    unsafe fn allocate(&mut self, element_count: i32)
     {
         // Does this copy all of the data to the new vector?
-        self.heap_data.set_len(block_count as usize);
+        self.heap_data.set_len(element_count as usize);
     }
 
     /// Increases the amount of memory available by the specified amount.  
@@ -106,30 +106,134 @@ impl<T> Freelist<T>
     /// Find and commit a block that fits the size requirement.
     /// If it does not find a block large enough it will resize.  The caller is
     /// guaranteed to get a block.
-    fn find_and_commit_block(&mut self, block_count: i32) -> i32
+    fn find_and_commit_block(&mut self, element_count: i32) -> i32
     {
-        let (prev_block_ixd, block_idx) = self.find_first_fit(block_count);
-        match block_idx
+        let (prev_block_index, block_index) = self.find_first_fit(element_count);
+        match block_index
         {
             // No blocks are large enough.
             None =>
             {
-                // TODO: Allocate more memory if no blocks are found.
-                // Once more memory has been allocated the last block can be used.
-                return 0;
+                // Grow to fit new block.
+                self.grow_capacity();
+                // Search again.  This is not the most optimal way of doing it.  Will lead to
+                // searching over blocks that we know are too small.
+                self.find_and_commit_block(element_count)
             }
 
             // Commit the block.
             Some(..) =>
             {
-                return 0;
+                self.commit_block(prev_block_index, block_index.unwrap(), element_count);
+                return block_index.unwrap();
             }
         }
     }
 
+    /// Commit the block at the index and update the blocks.
+    // This function has a lot of match blocks, can this be reduced?  This is due to the extensive
+    // use of Option<T>.
+    fn commit_block(&mut self, prev_block_index: Option<i32>, block_idx: i32, element_count: i32)
+    {
+        // Getting blocks, performs non-primitive casts.
+        unsafe {
+
+            let block = self.get_block(block_idx);
+
+            // Entire block is consumed.
+            if element_count == block.element_count
+            {
+                match prev_block_index
+                {
+                    None => self.first_free_block = block.get_next_block_index(),
+
+                    Some(..) => 
+                    {
+                        let next_block = block.get_next_block_index();
+                        let prev_block = self.get_block_mut(prev_block_index.unwrap());
+                        match next_block
+                        {
+                            None => prev_block.set_next_block_none(),
+                            Some(..) => prev_block.connect(next_block.unwrap()),
+                        }
+                    }
+                }
+            }
+            
+            // Part of block is consumed.
+            else if element_count < block.element_count
+            {
+                // Craete new block with reduced size.
+                let new_index = block_idx + element_count;
+                self.create_new_block(new_index, block.element_count - element_count, block.get_next_block_index());
+                // Update the prev block.
+                if prev_block_index != None
+                {
+                    self.get_block_mut(prev_block_index.unwrap()).connect(new_index);
+                }
+            }
+
+            // TODO: Throw. Too many elements for block.
+            else 
+            {
+
+            }
+        }
+    }
+
+    /// Increase the capacity of the freelist.
+    /// This function will be exposed to the user so that they can determine how the freelist
+    /// should grow.
+    fn grow_capacity(&mut self)
+    {
+
+    }
+
+    /// Connect two blocks based on the index.
+    ///
+    /// # Safety.
+    ///
+    /// This is unsafe.
+    ///
+    /// * Non-primitive casts are performed when getting the blocks.
+    unsafe fn connect_blocks(&mut self, first_block_index: i32, second_block_index: i32)
+    {
+        self.get_block_mut(first_block_index).connect(second_block_index);
+    }
+
+    /// Create a new block at the index with the given values and return a mutable reference.
+    /// 
+    /// # Safety.
+    /// 
+    /// This is unsafe.
+    ///
+    /// * Data is being written directly to a region of memory.
+    unsafe fn create_new_block_mut(&mut self, block_index: i32, element_count: i32, next_block_index: Option<i32>) -> &mut Block
+    {
+        let mut new_block = self.get_block_mut(block_index);
+        new_block.set_next_block_index(next_block_index);
+        new_block.element_count = element_count;
+        return new_block
+    }
+
+    /// Create a new block at the index with the given values and return a const reference.
+    ///
+    /// # Safety.
+    ///
+    /// This is unsafe.
+    ///
+    /// * Data is being written directly to a region of memory.
+    // Is puting the mut version of the function inside of the constant version good practice?
+    unsafe fn create_new_block(&mut self, block_index: i32, element_count: i32, next_block_index: Option<i32>) -> &Block 
+    {
+        self.create_new_block_mut(block_index, element_count, next_block_index)
+    }
+
     /// Traverse the list to find the last free block.
     /// Returns `None` if there are no free blocks.
-    fn last_block(&self) -> Option<i32>
+    // Should I rather keep track of the last block instead of searching for it?  Will depend on
+    // how much this function is called...
+    fn find_last_block(&self) -> Option<i32>
     {
         // Use first free block to start searching.
         match self.first_free_block
@@ -152,7 +256,7 @@ impl<T> Freelist<T>
                             return Some(current_block_index);
                         };
                         // Get next block.
-                        current_block_index = current_block.next_block_index().unwrap();
+                        current_block_index = current_block.get_next_block_index().unwrap();
                         current_block = self.get_block(current_block_index);
                     }
                 }
@@ -193,7 +297,7 @@ impl<T> Freelist<T>
                         }
 
                         // Check the next block.
-                        match current_block.next_block_index()
+                        match current_block.get_next_block_index()
                         {
                             // No block found.
                             None => return (prev_block_index, None),
@@ -202,7 +306,7 @@ impl<T> Freelist<T>
                             Some(..) =>
                             {
                                 prev_block_index = Some(current_block_index);
-                                current_block_index = current_block.next_block_index().unwrap();
+                                current_block_index = current_block.get_next_block_index().unwrap();
                                 current_block = self.get_block(current_block_index);
                             }
                         }
