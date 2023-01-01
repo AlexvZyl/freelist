@@ -21,6 +21,12 @@ pub struct Freelist<T>
     first_free_block: Option<i32>,
     /// The number of allocated blocks.
     used_blocks: i32,
+    /// Functions used when the freelist grows in capacity.
+    /// Is called when the freelist needs to grow.
+    /// Uses a default when not set by the user.
+    calculate_new_capacity_fn: fn(current_capacity: i32, 
+                                  requested_block_element_count: i32) 
+                                  -> i32
 }
 
 // Freelist implementations.
@@ -34,11 +40,10 @@ impl<T> Freelist<T>
         assert!(size_of::<T>() >= size_of::<Block>());
         Freelist { heap_data: Vec::with_capacity(0),
                    first_free_block: None,
-                   used_blocks: 0 }
+                   used_blocks: 0,
+                   calculate_new_capacity_fn: Freelist::<T>::calculate_new_capacity_default }
     }
 
-    /// Allocate enough memory for the amount (count) of elements requested.
-    /// This is regarded as a low-level function and does not do any checks,
     /// manipulation or lifetime management.
     /// See this as a call to `malloc()`, but with the existing data being
     /// copied over.
@@ -115,7 +120,7 @@ impl<T> Freelist<T>
             None =>
             {
                 // Grow to fit new block.
-                self.grow_capacity();
+                self.grow_capacity(element_count);
                 // Search again.  This is not the most optimal way of doing it.  Will lead to
                 // searching over blocks that we know are too small.
                 self.find_and_commit_block(element_count)
@@ -174,10 +179,39 @@ impl<T> Freelist<T>
         }
     }
 
-    /// Increase the capacity of the freelist.
-    /// This function will be exposed to the user so that they can determine how
-    /// the freelist should grow.
-    fn grow_capacity(&mut self) {}
+    /// Grow the capacity based on the calculation set.
+    fn grow_capacity(&mut self, requested_block_element_count: i32)
+    {
+        let new_capacity = (self.calculate_new_capacity_fn)(self.capacity_blocks(), requested_block_element_count);
+        unsafe {
+            self.allocate(new_capacity);
+        }
+    }
+
+    /// The default function used when calculating the new capacity of the freelist.
+    fn calculate_new_capacity_default(current_capacity: i32,
+                                      _requested_block_element_count: i32) 
+                                      -> i32
+    {
+        current_capacity + current_capacity / 2
+    }
+
+    /// Checks if the last block sits at the end of the freelist.
+    /// Returns false if there are no blocks.
+    fn is_last_block_at_end(&self) -> bool
+    {
+        unsafe {
+            let last_block_index = self.find_last_block();
+            match last_block_index {
+                None => return false,
+                Some(..) => 
+                {
+                    let last_block = self.get_block(last_block_index.unwrap());
+                        return last_block_index.unwrap() + last_block.element_count == self.capacity_blocks()
+                }
+            }
+        }
+    }
 
     /// Connect two blocks based on the index.
     ///
