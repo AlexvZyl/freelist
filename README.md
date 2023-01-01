@@ -8,4 +8,4 @@ This repo is starting as a project for me to learn Rust.  I have written one of 
 
 # Status
 
-⚠️ This project is WIP and not ready to use.
+⚠️ &nbsp;This project is a WIP and not ready to use.
