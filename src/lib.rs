@@ -24,9 +24,7 @@ pub struct Freelist<T>
     /// Functions used when the freelist grows in capacity.
     /// Is called when the freelist needs to grow.
     /// Uses a default when not set by the user.
-    calculate_new_capacity_fn: fn(current_capacity: i32, 
-                                  requested_block_element_count: i32) 
-                                  -> i32
+    calculate_new_capacity_fn: fn(current_capacity: i32, requested_block_element_count: i32) -> i32,
 }
 
 // Freelist implementations.
@@ -183,31 +181,35 @@ impl<T> Freelist<T>
     fn grow_capacity(&mut self, requested_block_element_count: i32)
     {
         let current_capacity = self.capacity_blocks();
-        let new_capacity = (self.calculate_new_capacity_fn)(current_capacity, requested_block_element_count);
+        let new_capacity =
+            (self.calculate_new_capacity_fn)(current_capacity, requested_block_element_count);
         let capacity_increase = new_capacity - current_capacity;
         unsafe {
             self.allocate(new_capacity);
             // Just extend the last block's count.
             if self.is_last_block_at_end()
             {
-                self.get_block_mut(self.find_last_block_index().unwrap()).element_count += capacity_increase;
+                self.get_block_mut(self.find_last_block_index().unwrap())
+                    .element_count += capacity_increase;
             }
             // Create new block.
             else
             {
                 self.create_new_block(current_capacity, capacity_increase, None);
                 let last_block_index = self.find_last_block_index();
-                if last_block_index != None 
+                if last_block_index != None
                 {
-                    self.get_block_mut(last_block_index.unwrap()).connect(Some(current_capacity));
+                    self.get_block_mut(last_block_index.unwrap())
+                        .connect(Some(current_capacity));
                 }
             }
         }
     }
 
-    /// The default function used when calculating the new capacity of the freelist.
+    /// The default function used when calculating the new capacity of the
+    /// freelist.
     fn calculate_new_capacity_default(current_capacity: i32,
-                                      _requested_block_element_count: i32) 
+                                      _requested_block_element_count: i32)
                                       -> i32
     {
         current_capacity + current_capacity / 2
@@ -219,12 +221,14 @@ impl<T> Freelist<T>
     {
         unsafe {
             let last_block_index = self.find_last_block_index();
-            match last_block_index {
+            match last_block_index
+            {
                 None => return false,
-                Some(..) => 
+                Some(..) =>
                 {
                     let last_block = self.get_block(last_block_index.unwrap());
-                        return last_block_index.unwrap() + last_block.element_count == self.capacity_blocks()
+                    return last_block_index.unwrap() + last_block.element_count
+                           == self.capacity_blocks();
                 }
             }
         }
@@ -369,7 +373,8 @@ impl<T> Freelist<T>
         }
     }
 
-    /// If the two block are adjacent, merge them.  Returns true if the merge occured.
+    /// If the two block are adjacent, merge them.  Returns true if the merge
+    /// occured.
     pub fn attempt_merge(&mut self, first_block_index: i32, second_block_index: i32) -> bool
     {
         unsafe {
@@ -380,10 +385,10 @@ impl<T> Freelist<T>
                 let first_block = self.get_block_mut(first_block_index);
                 first_block.connect(next_block_index);
                 first_block.element_count += second_block_count;
-                return true
+                return true;
             }
         }
-        return false
+        return false;
     }
 
     /// Get the size of the type in bytes (includes alignment).
