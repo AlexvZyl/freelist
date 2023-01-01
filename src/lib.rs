@@ -131,8 +131,6 @@ impl<T> Freelist<T>
     }
 
     /// Commit the block at the index and update the blocks.
-    // This function has a lot of match blocks, can this be reduced?  This is due to
-    // the extensive use of Option<T>.
     fn commit_block(&mut self, prev_block_index: Option<i32>, block_idx: i32, element_count: i32)
     {
         // Getting blocks, performs non-primitive casts.
@@ -142,19 +140,15 @@ impl<T> Freelist<T>
             // Entire block is consumed.
             if element_count == block.element_count
             {
+                let next_block = block.get_next_block_index();
                 match prev_block_index
                 {
-                    None => self.first_free_block = block.get_next_block_index(),
+                    None => self.first_free_block = next_block,
 
                     Some(..) =>
                     {
-                        let next_block = block.get_next_block_index();
-                        let prev_block = self.get_block_mut(prev_block_index.unwrap());
-                        match next_block
-                        {
-                            None => prev_block.set_next_block_none(),
-                            Some(..) => prev_block.connect(next_block.unwrap()),
-                        }
+                        self.get_block_mut(prev_block_index.unwrap())
+                            .connect(next_block);
                     }
                 }
             }
@@ -170,7 +164,7 @@ impl<T> Freelist<T>
                 if prev_block_index != None
                 {
                     self.get_block_mut(prev_block_index.unwrap())
-                        .connect(new_index);
+                        .connect(Some(new_index));
                 }
             }
             // TODO: Throw. Too many elements for block.
@@ -195,7 +189,7 @@ impl<T> Freelist<T>
     unsafe fn connect_blocks(&mut self, first_block_index: i32, second_block_index: i32)
     {
         self.get_block_mut(first_block_index)
-            .connect(second_block_index);
+            .connect(Some(second_block_index));
     }
 
     /// Create a new block at the index with the given values and return a
@@ -322,6 +316,23 @@ impl<T> Freelist<T>
                 }
             }
         }
+    }
+
+    /// If the two block are adjacent, merge them.  Returns true if the merge occured.
+    pub fn attempt_merge(&mut self, first_block_index: i32, second_block_index: i32) -> bool
+    {
+        unsafe {
+            if self.blocks_are_adjacent(first_block_index, second_block_index)
+            {
+                let next_block_index = self.get_block(second_block_index).get_next_block_index();
+                let second_block_count = self.get_block(second_block_index).element_count;
+                let first_block = self.get_block_mut(first_block_index);
+                first_block.connect(next_block_index);
+                first_block.element_count += second_block_count;
+                return true
+            }
+        }
+        return false
     }
 
     /// Get the size of the type in bytes (includes alignment).
