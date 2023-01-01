@@ -182,9 +182,26 @@ impl<T> Freelist<T>
     /// Grow the capacity based on the calculation set.
     fn grow_capacity(&mut self, requested_block_element_count: i32)
     {
-        let new_capacity = (self.calculate_new_capacity_fn)(self.capacity_blocks(), requested_block_element_count);
+        let current_capacity = self.capacity_blocks();
+        let new_capacity = (self.calculate_new_capacity_fn)(current_capacity, requested_block_element_count);
+        let capacity_increase = new_capacity - current_capacity;
         unsafe {
             self.allocate(new_capacity);
+            // Just extend the last block's count.
+            if self.is_last_block_at_end()
+            {
+                self.get_block_mut(self.find_last_block_index().unwrap()).element_count += capacity_increase;
+            }
+            // Create new block.
+            else
+            {
+                self.create_new_block(current_capacity, capacity_increase, None);
+                let last_block_index = self.find_last_block_index();
+                if last_block_index != None 
+                {
+                    self.get_block_mut(last_block_index.unwrap()).connect(Some(current_capacity));
+                }
+            }
         }
     }
 
@@ -201,7 +218,7 @@ impl<T> Freelist<T>
     fn is_last_block_at_end(&self) -> bool
     {
         unsafe {
-            let last_block_index = self.find_last_block();
+            let last_block_index = self.find_last_block_index();
             match last_block_index {
                 None => return false,
                 Some(..) => 
@@ -269,7 +286,7 @@ impl<T> Freelist<T>
     /// Returns `None` if there are no free blocks.
     // Should I rather keep track of the last block instead of searching for it?
     // Will depend on how much this function is called...
-    fn find_last_block(&self) -> Option<i32>
+    fn find_last_block_index(&self) -> Option<i32>
     {
         // Use first free block to start searching.
         match self.first_free_block
