@@ -39,7 +39,14 @@ impl Block
     /// Connect the block to the block at `block_index`.  This basically just
     /// changes `next_block_index`, since blocks do not have references to
     /// the previous block.
-    pub fn connect(&mut self, block_index: i32) { self.next_block_index = block_index; }
+    pub fn connect(&mut self, block_index: Option<i32>) 
+    { 
+        match block_index
+        {
+            None => self.set_next_block_none(),
+            Some(..) => self.next_block_index = block_index.unwrap(),
+        }
+    }
 
     /// Set the block to have no next block.
     pub fn set_next_block_none(&mut self) { self.next_block_index = -1; }
