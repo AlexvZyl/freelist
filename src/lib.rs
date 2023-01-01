@@ -21,6 +21,12 @@ pub struct Freelist<T>
     first_free_block: Option<i32>,
     /// The number of allocated blocks.
     used_blocks: i32,
+    /// Functions used when the freelist grows in capacity.
+    /// Is called when the freelist needs to grow.
+    /// Uses a default when not set by the user.
+    calculate_new_capacity_fn: fn(current_capacity: i32, 
+                                  requested_block_element_count: i32) 
+                                  -> i32
 }
 
 // Freelist implementations.
@@ -34,11 +40,10 @@ impl<T> Freelist<T>
         assert!(size_of::<T>() >= size_of::<Block>());
         Freelist { heap_data: Vec::with_capacity(0),
                    first_free_block: None,
-                   used_blocks: 0 }
+                   used_blocks: 0,
+                   calculate_new_capacity_fn: Freelist::<T>::calculate_new_capacity_default }
     }
 
-    /// Allocate enough memory for the amount (count) of elements requested.
-    /// This is regarded as a low-level function and does not do any checks,
     /// manipulation or lifetime management.
     /// See this as a call to `malloc()`, but with the existing data being
     /// copied over.
@@ -115,7 +120,7 @@ impl<T> Freelist<T>
             None =>
             {
                 // Grow to fit new block.
-                self.grow_capacity();
+                self.grow_capacity(element_count);
                 // Search again.  This is not the most optimal way of doing it.  Will lead to
                 // searching over blocks that we know are too small.
                 self.find_and_commit_block(element_count)
@@ -131,8 +136,6 @@ impl<T> Freelist<T>
     }
 
     /// Commit the block at the index and update the blocks.
-    // This function has a lot of match blocks, can this be reduced?  This is due to
-    // the extensive use of Option<T>.
     fn commit_block(&mut self, prev_block_index: Option<i32>, block_idx: i32, element_count: i32)
     {
         // Getting blocks, performs non-primitive casts.
@@ -142,19 +145,15 @@ impl<T> Freelist<T>
             // Entire block is consumed.
             if element_count == block.element_count
             {
+                let next_block = block.get_next_block_index();
                 match prev_block_index
                 {
-                    None => self.first_free_block = block.get_next_block_index(),
+                    None => self.first_free_block = next_block,
 
                     Some(..) =>
                     {
-                        let next_block = block.get_next_block_index();
-                        let prev_block = self.get_block_mut(prev_block_index.unwrap());
-                        match next_block
-                        {
-                            None => prev_block.set_next_block_none(),
-                            Some(..) => prev_block.connect(next_block.unwrap()),
-                        }
+                        self.get_block_mut(prev_block_index.unwrap())
+                            .connect(next_block);
                     }
                 }
             }
@@ -170,7 +169,7 @@ impl<T> Freelist<T>
                 if prev_block_index != None
                 {
                     self.get_block_mut(prev_block_index.unwrap())
-                        .connect(new_index);
+                        .connect(Some(new_index));
                 }
             }
             // TODO: Throw. Too many elements for block.
@@ -180,10 +179,56 @@ impl<T> Freelist<T>
         }
     }
 
-    /// Increase the capacity of the freelist.
-    /// This function will be exposed to the user so that they can determine how
-    /// the freelist should grow.
-    fn grow_capacity(&mut self) {}
+    /// Grow the capacity based on the calculation set.
+    fn grow_capacity(&mut self, requested_block_element_count: i32)
+    {
+        let current_capacity = self.capacity_blocks();
+        let new_capacity = (self.calculate_new_capacity_fn)(current_capacity, requested_block_element_count);
+        let capacity_increase = new_capacity - current_capacity;
+        unsafe {
+            self.allocate(new_capacity);
+            // Just extend the last block's count.
+            if self.is_last_block_at_end()
+            {
+                self.get_block_mut(self.find_last_block_index().unwrap()).element_count += capacity_increase;
+            }
+            // Create new block.
+            else
+            {
+                self.create_new_block(current_capacity, capacity_increase, None);
+                let last_block_index = self.find_last_block_index();
+                if last_block_index != None 
+                {
+                    self.get_block_mut(last_block_index.unwrap()).connect(Some(current_capacity));
+                }
+            }
+        }
+    }
+
+    /// The default function used when calculating the new capacity of the freelist.
+    fn calculate_new_capacity_default(current_capacity: i32,
+                                      _requested_block_element_count: i32) 
+                                      -> i32
+    {
+        current_capacity + current_capacity / 2
+    }
+
+    /// Checks if the last block sits at the end of the freelist.
+    /// Returns false if there are no blocks.
+    fn is_last_block_at_end(&self) -> bool
+    {
+        unsafe {
+            let last_block_index = self.find_last_block_index();
+            match last_block_index {
+                None => return false,
+                Some(..) => 
+                {
+                    let last_block = self.get_block(last_block_index.unwrap());
+                        return last_block_index.unwrap() + last_block.element_count == self.capacity_blocks()
+                }
+            }
+        }
+    }
 
     /// Connect two blocks based on the index.
     ///
@@ -195,7 +240,7 @@ impl<T> Freelist<T>
     unsafe fn connect_blocks(&mut self, first_block_index: i32, second_block_index: i32)
     {
         self.get_block_mut(first_block_index)
-            .connect(second_block_index);
+            .connect(Some(second_block_index));
     }
 
     /// Create a new block at the index with the given values and return a
@@ -241,7 +286,7 @@ impl<T> Freelist<T>
     /// Returns `None` if there are no free blocks.
     // Should I rather keep track of the last block instead of searching for it?
     // Will depend on how much this function is called...
-    fn find_last_block(&self) -> Option<i32>
+    fn find_last_block_index(&self) -> Option<i32>
     {
         // Use first free block to start searching.
         match self.first_free_block
@@ -322,6 +367,23 @@ impl<T> Freelist<T>
                 }
             }
         }
+    }
+
+    /// If the two block are adjacent, merge them.  Returns true if the merge occured.
+    pub fn attempt_merge(&mut self, first_block_index: i32, second_block_index: i32) -> bool
+    {
+        unsafe {
+            if self.blocks_are_adjacent(first_block_index, second_block_index)
+            {
+                let next_block_index = self.get_block(second_block_index).get_next_block_index();
+                let second_block_count = self.get_block(second_block_index).element_count;
+                let first_block = self.get_block_mut(first_block_index);
+                first_block.connect(next_block_index);
+                first_block.element_count += second_block_count;
+                return true
+            }
+        }
+        return false
     }
 
     /// Get the size of the type in bytes (includes alignment).
