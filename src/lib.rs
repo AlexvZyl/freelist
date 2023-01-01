@@ -42,7 +42,6 @@ impl<T> Freelist<T>
                    calculate_new_capacity_fn: Freelist::<T>::calculate_new_capacity_default }
     }
 
-    /// manipulation or lifetime management.
     /// See this as a call to `malloc()`, but with the existing data being
     /// copied over.
     ///
