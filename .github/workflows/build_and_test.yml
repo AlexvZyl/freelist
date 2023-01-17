@@ -1,4 +1,4 @@
-name: Build
+name: Build & Test
 
 on:
   push:
@@ -16,3 +16,5 @@ jobs:
     - uses: actions/checkout@v3
     - name: Build with cargo
       run: cargo build --verbose
+    - name: Run tests with cargo
+      run: cargo test --verbose
