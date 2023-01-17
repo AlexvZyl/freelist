@@ -415,8 +415,10 @@ impl<T> Freelist<T>
     /// Get the amount of free memory.
     pub fn free_bytes(&self) -> i32 { self.free_blocks() * self.type_size_bytes() }
 
-    /// Ensure the freelist has enough capcity for the requested amount of elements.
-    pub fn reserve_exact(&mut self, total_elements: usize) {
+    /// Ensure the freelist has enough capcity for the requested amount of
+    /// elements.
+    pub fn reserve_exact(&mut self, total_elements: usize)
+    {
         self.heap_data.reserve_exact(total_elements)
     }
 }
