@@ -374,7 +374,7 @@ impl<T> Freelist<T>
 
     /// If the two block are adjacent, merge them.  Returns true if the merge
     /// occured.
-    pub fn attempt_merge(&mut self, first_block_index: i32, second_block_index: i32) -> bool
+    fn attempt_merge(&mut self, first_block_index: i32, second_block_index: i32) -> bool
     {
         unsafe {
             if self.blocks_are_adjacent(first_block_index, second_block_index)
@@ -398,7 +398,7 @@ impl<T> Freelist<T>
     pub fn has_free_block(&self) -> bool { self.first_free_block != None }
 
     /// Get the capacity of the freelist.
-    pub fn capacity_blocks(&self) -> i32 { self.heap_data.len() as i32 }
+    pub fn capacity_blocks(&self) -> i32 { self.heap_data.capacity() as i32 }
 
     /// Get the capacity of the freelist in bytes.
     pub fn capacity_bytes(&self) -> i32 { self.capacity_blocks() * self.type_size_bytes() }
@@ -414,4 +414,9 @@ impl<T> Freelist<T>
 
     /// Get the amount of free memory.
     pub fn free_bytes(&self) -> i32 { self.free_blocks() * self.type_size_bytes() }
+
+    /// Ensure the freelist has enough capcity for the requested amount of elements.
+    pub fn reserve_exact(&mut self, total_elements: usize) {
+        self.heap_data.reserve_exact(total_elements)
+    }
 }
