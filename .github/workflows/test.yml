@@ -1,4 +1,4 @@
-name: Build
+name: Test
 
 on:
   push:
@@ -14,5 +14,5 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    - name: Build with cargo
-      run: cargo build --verbose
+    - name: Run tests with cargo
+      run: cargo test --verbose
