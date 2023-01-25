@@ -1,6 +1,6 @@
 # Freelist Collection for Rust
 
-[![Build Status](https://github.com/alex-vzyl/freelist/workflows/Build/badge.svg)](https://github.com/alex-vzyl/freelist/actions?workflow=Build) 
+[![Build Status](https://github.com/AlexvZyl/freelist/workflows/Build/badge.svg)](https://github.com/AlexvZyl/freelist/actions?workflow=Build) 
 
 A cache coherent freelist collection written in Rust.
 
