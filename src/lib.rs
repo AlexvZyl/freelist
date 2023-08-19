@@ -6,7 +6,6 @@ use std::vec::Vec;
 mod block;
 use block::Block;
 
-/// The maximum size (in bytes) of the freelist.
 const MAX_SIZE_BYTES: i32 = 2147483647;
 
 /// A cache coherent, heap allocated collection.
@@ -21,19 +20,14 @@ pub struct Freelist<T>
     first_free_block: Option<i32>,
     /// The number of allocated blocks.
     used_blocks: i32,
-    /// Functions used when the freelist grows in capacity.
-    /// Is called when the freelist needs to grow.
-    /// Uses a default when not set by the user.
-    calculate_new_capacity_fn: fn(current_capacity: i32, requested_block_element_count: i32) -> i32,
+    /// Calculates the new capacity when the freelist grows.
+    calculate_new_capacity_fn: fn(current_capacity: i32, _requested_capacity: i32) -> i32,
 }
 
-// Freelist implementations.
 impl<T> Freelist<T>
 {
-    /// Create a new, empty freelist.
     pub fn new() -> Self
     {
-        // Need to assert the size of the type to ensure `Block` can fit.
         // This is currently done at runtime, can it be done at compile time?
         assert!(size_of::<T>() >= size_of::<Block>());
         Freelist { heap_data: Vec::with_capacity(0),
@@ -68,7 +62,6 @@ impl<T> Freelist<T>
     /// * `Freelist::allocate()` is called.
     unsafe fn extend_by(&mut self, block_count: i32)
     {
-        // Allocate the required memory.
         self.allocate(self.capacity_blocks() + block_count);
     }
 
@@ -116,7 +109,6 @@ impl<T> Freelist<T>
             // No blocks are large enough.
             None =>
             {
-                // Grow to fit new block.
                 self.grow_capacity(element_count);
                 // Search again.  This is not the most optimal way of doing it.  Will lead to
                 // searching over blocks that we know are too small.
@@ -135,7 +127,6 @@ impl<T> Freelist<T>
     /// Commit the block at the index and update the blocks.
     fn commit_block(&mut self, prev_block_index: Option<i32>, block_idx: i32, element_count: i32)
     {
-        // Getting blocks, performs non-primitive casts.
         unsafe {
             let block = self.get_block(block_idx);
 
@@ -157,7 +148,7 @@ impl<T> Freelist<T>
             // Part of block is consumed.
             else if element_count < block.element_count
             {
-                // Craete new block with reduced size.
+                // Create new block with reduced size.
                 let new_index = block_idx + element_count;
                 self.create_new_block(new_index,
                                       block.element_count - element_count,
@@ -208,7 +199,7 @@ impl<T> Freelist<T>
     /// The default function used when calculating the new capacity of the
     /// freelist.
     fn calculate_new_capacity_default(current_capacity: i32,
-                                      _requested_block_element_count: i32)
+                                      _requested_capacity: i32)
                                       -> i32
     {
         current_capacity + current_capacity / 2
