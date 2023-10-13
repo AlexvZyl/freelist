@@ -4,60 +4,63 @@
 // be 8 bytes (64 bits).
 // I want to use `Option` in this type, but it uses 8 bytes instead of 4.
 // Instead, using an API to get this functionality.  Is there a significant
-// overhead?
-pub struct Block
-{
-    /// How many elements can be fit into the block.
+// overhead?  Or a better way to do this?
+pub struct Block {
+    /// How many elements are (or can fit) in(to) the block.
     /// (A block can consist of many contiguous elements)
-    // Should this be manipulated via an API instead of directly?
-    pub element_count: i32,
-    /// Index to the next free block in the freelist.
+    n_elements: i32,
+    /// Index to the next free block.
     next_block_index: i32,
 }
 
-// Block implementations.
-impl Block
-{
-    /// Checks if the block has a block that sits after it.
-    pub fn has_next_block(&self) -> bool { self.next_block_index != -1 }
+const NONE_INT :i32 = -1;
 
-    /// Checks if the block is empty.
-    /// The block should be removed from the freelist if this is true.
-    pub fn is_empty(&self) -> bool { self.element_count == 0 }
+impl Block {
+    pub fn get_n_elements(&self) -> i32 { 
+        self.n_elements 
+    }
 
-    /// Get the index of the next block.
-    // Using an API to make sure we keep the size at 8 bytes.
-    pub fn get_next_block_index(&self) -> Option<i32>
-    {
-        match self.next_block_index
-        {
-            -1 => None,
+    /// Returns the new number of elements.
+    /// Errors if the block overlaps with the following block.
+    pub fn grow(&mut self, increase: i32) -> Result<i32, i32> {
+        let new_cap = self.n_elements + increase;
+        if self.has_next_block() && (new_cap >= self.next_block_index) {
+            return Err(new_cap)
+        }
+        self.n_elements = new_cap;
+        Ok(new_cap)
+    }
+
+    /// Returns the new number of elements.
+    /// Errors if the value is shrunk to or below 0.
+    pub fn shrink(&mut self, decrease: i32) -> Result<i32, i32> { 
+        let new_cap = self.n_elements - decrease;
+        if new_cap <= 0 {
+            return Err(new_cap)
+        }
+        self.n_elements = new_cap;
+        Ok(new_cap)
+    }
+
+    pub fn has_next_block(&self) -> bool { 
+        self.next_block_index != NONE_INT
+    }
+
+    /// The block should probably be removed from the freelist if this is true.
+    pub fn is_empty(&self) -> bool { 
+        self.n_elements == 0 
+    }
+
+    pub fn get_next_block_index(&self) -> Option<i32> {
+        match self.next_block_index {
+            NONE_INT => None,
             _ => Some(self.next_block_index),
         }
     }
 
-    /// Connect the block to the block at `block_index`.  This basically just
-    /// changes `next_block_index`, since blocks do not have references to
-    /// the previous block.
-    pub fn connect(&mut self, block_index: Option<i32>)
-    {
-        match block_index
-        {
-            None => self.set_next_block_none(),
-            Some(..) => self.next_block_index = block_index.unwrap(),
-        }
-    }
-
-    /// Set the block to have no next block.
-    pub fn set_next_block_none(&mut self) { self.next_block_index = -1; }
-
-    /// Set the next block index of the current block.
-    pub fn set_next_block_index(&mut self, next_block_index: Option<i32>)
-    {
-        match next_block_index
-        {
-            None => self.next_block_index = -1,
-            Some(..) => self.next_block_index = next_block_index.unwrap(),
-        }
+    /// This basically just changes `next_block_index`, since blocks 
+    /// do not have references to the previous block (for now?).
+    pub fn connect_at(&mut self, block_index: Option<i32>) {
+        self.next_block_index = block_index.unwrap_or_else(|| NONE_INT) 
     }
 }
