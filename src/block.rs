@@ -20,6 +20,10 @@ impl Block {
         self.n_elements 
     }
 
+    pub fn set_n_elements(&mut self, n_elements: i32) {
+        self.n_elements = n_elements
+    }
+
     /// Returns the new number of elements.
     /// Errors if the block overlaps with the following block.
     pub fn grow(&mut self, increase: i32) -> Result<i32, i32> {
@@ -46,7 +50,7 @@ impl Block {
         self.next_block_index != NONE_INT
     }
 
-    /// The block should probably be removed from the freelist if this is true.
+    /// The block should be removed from the freelist if this is true.
     pub fn is_empty(&self) -> bool { 
         self.n_elements == 0 
     }
