@@ -6,7 +6,6 @@ use std::vec::Vec;
 mod block;
 use block::Block;
 
-/// The maximum size (in bytes) of the freelist.
 const MAX_SIZE_BYTES: i32 = 2147483647;
 
 /// A cache coherent, heap allocated collection.
@@ -21,19 +20,14 @@ pub struct Freelist<T>
     first_free_block: Option<i32>,
     /// The number of allocated blocks.
     used_blocks: i32,
-    /// Functions used when the freelist grows in capacity.
-    /// Is called when the freelist needs to grow.
-    /// Uses a default when not set by the user.
-    calculate_new_capacity_fn: fn(current_capacity: i32, requested_block_element_count: i32) -> i32,
+    /// Calculates the new capacity when the freelist grows.
+    calculate_new_capacity_fn: fn(current_capacity: i32, _requested_capacity: i32) -> i32,
 }
 
-// Freelist implementations.
 impl<T> Freelist<T>
 {
-    /// Create a new, empty freelist.
     pub fn new() -> Self
     {
-        // Need to assert the size of the type to ensure `Block` can fit.
         // This is currently done at runtime, can it be done at compile time?
         assert!(size_of::<T>() >= size_of::<Block>());
         Freelist { heap_data: Vec::with_capacity(0),
@@ -68,7 +62,6 @@ impl<T> Freelist<T>
     /// * `Freelist::allocate()` is called.
     unsafe fn extend_by(&mut self, block_count: i32)
     {
-        // Allocate the required memory.
         self.allocate(self.capacity_blocks() + block_count);
     }
 
@@ -102,7 +95,7 @@ impl<T> Freelist<T>
     /// * Performs a non-primitive cast when checknig adjacency.
     unsafe fn blocks_are_adjacent(&self, first_block_index: i32, second_block_index: i32) -> bool
     {
-        first_block_index + self.get_block(first_block_index).element_count == second_block_index
+        first_block_index + self.get_block(first_block_index).get_n_elements() == second_block_index
     }
 
     /// Find and commit a block that fits the size requirement.
@@ -116,7 +109,6 @@ impl<T> Freelist<T>
             // No blocks are large enough.
             None =>
             {
-                // Grow to fit new block.
                 self.grow_capacity(element_count);
                 // Search again.  This is not the most optimal way of doing it.  Will lead to
                 // searching over blocks that we know are too small.
@@ -135,12 +127,11 @@ impl<T> Freelist<T>
     /// Commit the block at the index and update the blocks.
     fn commit_block(&mut self, prev_block_index: Option<i32>, block_idx: i32, element_count: i32)
     {
-        // Getting blocks, performs non-primitive casts.
         unsafe {
             let block = self.get_block(block_idx);
 
             // Entire block is consumed.
-            if element_count == block.element_count
+            if element_count == block.get_n_elements()
             {
                 let next_block = block.get_next_block_index();
                 match prev_block_index
@@ -150,23 +141,23 @@ impl<T> Freelist<T>
                     Some(..) =>
                     {
                         self.get_block_mut(prev_block_index.unwrap())
-                            .connect(next_block);
+                            .connect_at(next_block);
                     }
                 }
             }
             // Part of block is consumed.
-            else if element_count < block.element_count
+            else if element_count < block.get_n_elements()
             {
-                // Craete new block with reduced size.
+                // Create new block with reduced size.
                 let new_index = block_idx + element_count;
                 self.create_new_block(new_index,
-                                      block.element_count - element_count,
+                                      block.get_n_elements() - element_count,
                                       block.get_next_block_index());
                 // Update the prev block.
                 if prev_block_index != None
                 {
                     self.get_block_mut(prev_block_index.unwrap())
-                        .connect(Some(new_index));
+                        .connect_at(Some(new_index));
                 }
             }
             // TODO: Throw. Too many elements for block.
@@ -188,8 +179,12 @@ impl<T> Freelist<T>
             // Just extend the last block's count.
             if self.is_last_block_at_end()
             {
-                self.get_block_mut(self.find_last_block_index().unwrap())
-                    .element_count += capacity_increase;
+                let result = self.get_block_mut(self.find_last_block_index().unwrap())
+                    .grow(capacity_increase);
+                match result {
+                    Ok(val) => {},
+                    Err(val) => {}
+                }
             }
             // Create new block.
             else
@@ -199,7 +194,7 @@ impl<T> Freelist<T>
                 if last_block_index != None
                 {
                     self.get_block_mut(last_block_index.unwrap())
-                        .connect(Some(current_capacity));
+                        .connect_at(Some(current_capacity));
                 }
             }
         }
@@ -208,7 +203,7 @@ impl<T> Freelist<T>
     /// The default function used when calculating the new capacity of the
     /// freelist.
     fn calculate_new_capacity_default(current_capacity: i32,
-                                      _requested_block_element_count: i32)
+                                      _requested_capacity: i32)
                                       -> i32
     {
         current_capacity + current_capacity / 2
@@ -226,7 +221,7 @@ impl<T> Freelist<T>
                 Some(..) =>
                 {
                     let last_block = self.get_block(last_block_index.unwrap());
-                    return last_block_index.unwrap() + last_block.element_count
+                    return last_block_index.unwrap() + last_block.get_n_elements()
                            == self.capacity_blocks();
                 }
             }
@@ -243,7 +238,7 @@ impl<T> Freelist<T>
     unsafe fn connect_blocks(&mut self, first_block_index: i32, second_block_index: i32)
     {
         self.get_block_mut(first_block_index)
-            .connect(Some(second_block_index));
+            .connect_at(Some(second_block_index));
     }
 
     /// Create a new block at the index with the given values and return a
@@ -260,9 +255,9 @@ impl<T> Freelist<T>
                                    next_block_index: Option<i32>)
                                    -> &mut Block
     {
-        let mut new_block = self.get_block_mut(block_index);
-        new_block.set_next_block_index(next_block_index);
-        new_block.element_count = element_count;
+        let new_block = self.get_block_mut(block_index);
+        new_block.connect_at(next_block_index);
+        new_block.set_n_elements(element_count);
         return new_block;
     }
 
@@ -347,7 +342,7 @@ impl<T> Freelist<T>
                     loop
                     {
                         // Found large enough block.
-                        if current_block.element_count >= element_count
+                        if current_block.get_n_elements() >= element_count
                         {
                             return (prev_block_index, Some(current_block_index));
                         }
@@ -380,10 +375,14 @@ impl<T> Freelist<T>
             if self.blocks_are_adjacent(first_block_index, second_block_index)
             {
                 let next_block_index = self.get_block(second_block_index).get_next_block_index();
-                let second_block_count = self.get_block(second_block_index).element_count;
+                let second_block_count = self.get_block(second_block_index).get_n_elements();
                 let first_block = self.get_block_mut(first_block_index);
-                first_block.connect(next_block_index);
-                first_block.element_count += second_block_count;
+                first_block.connect_at(next_block_index);
+                let result = first_block.grow(second_block_count);
+                match result {
+                    Err(val) => {},
+                    Ok(val) => {},
+                }
                 return true;
             }
         }
