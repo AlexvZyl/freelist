@@ -136,7 +136,7 @@ impl<T> Freelist<T> {
             else if element_count < block.get_n_elements() {
                 // Create new block with reduced size.
                 let new_index = block_idx + element_count;
-                self.create_new_block(
+                self.new_block(
                     new_index,
                     block.get_n_elements() - element_count,
                     block.get_next_block_index(),
@@ -173,7 +173,7 @@ impl<T> Freelist<T> {
             }
             // Create new block.
             else {
-                self.create_new_block(current_capacity, capacity_increase, None);
+                self.new_block(current_capacity, capacity_increase, None);
                 let last_block_index = self.find_last_block_index();
                 if last_block_index != None {
                     self.get_block_mut(last_block_index.unwrap())
@@ -225,16 +225,17 @@ impl<T> Freelist<T> {
     /// This is unsafe.
     ///
     /// * Data is being written directly to a region of memory.
-    unsafe fn create_new_block_mut(
+    unsafe fn new_block_mut(
         &mut self,
         block_index: i32,
         element_count: i32,
         next_block_index: Option<i32>,
     ) -> &mut Block {
-        let new_block = self.get_block_mut(block_index);
-        new_block.connect_at(next_block_index);
-        new_block.set_n_elements(element_count);
-        return new_block;
+        Block::from_source(
+            &mut self.heap_data[block_index as usize],
+            Some(element_count),
+            next_block_index
+        )
     }
 
     /// Create a new block at the index with the given values and return a const
@@ -247,13 +248,13 @@ impl<T> Freelist<T> {
     /// * Data is being written directly to a region of memory.
     // Is puting the mut version of the function inside of the constant version good
     // practice?
-    unsafe fn create_new_block(
+    unsafe fn new_block(
         &mut self,
         block_index: i32,
         element_count: i32,
         next_block_index: Option<i32>,
     ) -> &Block {
-        self.create_new_block_mut(block_index, element_count, next_block_index)
+        self.new_block_mut(block_index, element_count, next_block_index)
     }
 
     /// Traverse the list to find the last free block.

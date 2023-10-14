@@ -1,3 +1,5 @@
+use std::mem::transmute;
+
 /// Used to describe an open block in the freelist.
 /// A block can consist of many elements, if they are contiguous.
 // This struct does not use `usize` since I want to force it to
@@ -8,41 +10,52 @@
 pub struct Block {
     /// How many elements are (or can fit) in(to) the block.
     /// (A block can consist of many contiguous elements)
-    n_elements: i32,
+    element_count: i32,
     /// Index to the next free block.
     next_block_index: i32,
 }
 
-const NONE_INT: i32 = -1;
+const NONE_INT: i32 = i32::MIN;
 
 impl Block {
-    pub fn get_n_elements(&self) -> i32 {
-        self.n_elements
+    /// Create a new block from the data provided by the source.  This source wil be a region of
+    /// memory in the freelist, for now only 64 bits.
+    ///
+    /// # Safety
+    ///
+    /// This function is highly unsage.
+    ///
+    /// * Transmutes the source.
+    pub unsafe fn from_source<T>(src: &mut T, n_elements: Option<i32>, next_block_index: Option<i32>) -> &mut Block {
+        let block: &mut Block = transmute(src);
+        block.element_count = n_elements.unwrap_or_else(|| block.element_count);
+        block.next_block_index = next_block_index.unwrap_or_else(|| block.next_block_index);
+        block
     }
 
-    pub fn set_n_elements(&mut self, n_elements: i32) {
-        self.n_elements = n_elements
+    pub fn get_n_elements(&self) -> i32 {
+        self.element_count
     }
 
     /// Returns the new number of elements.
     /// Errors if the block overlaps with the following block.
     pub fn grow(&mut self, increase: i32) -> Result<i32, i32> {
-        let new_cap = self.n_elements + increase;
+        let new_cap = self.element_count + increase;
         if self.has_next_block() && (new_cap >= self.next_block_index) {
             return Err(new_cap);
         }
-        self.n_elements = new_cap;
+        self.element_count = new_cap;
         Ok(new_cap)
     }
 
     /// Returns the new number of elements.
     /// Errors if the value is shrunk to or below 0.
     pub fn shrink(&mut self, decrease: i32) -> Result<i32, i32> {
-        let new_cap = self.n_elements - decrease;
+        let new_cap = self.element_count - decrease;
         if new_cap <= 0 {
             return Err(new_cap);
         }
-        self.n_elements = new_cap;
+        self.element_count = new_cap;
         Ok(new_cap)
     }
 
@@ -52,7 +65,7 @@ impl Block {
 
     /// The block should be removed from the freelist if this is true.
     pub fn is_empty(&self) -> bool {
-        self.n_elements == 0
+        self.element_count == 0
     }
 
     pub fn get_next_block_index(&self) -> Option<i32> {
