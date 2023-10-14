@@ -1,6 +1,9 @@
 #[cfg(test)]
 mod tests {
 
+    use std::mem;
+    use freelist::Freelist;
+
     struct Entity {
         _a: i32,
         _b: i32,
@@ -12,10 +15,6 @@ mod tests {
         _b: i16,
         _c: i16
     }
-
-    use std::mem;
-
-    use freelist::Freelist;
 
     #[test]
     fn default_constructor() {
