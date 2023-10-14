@@ -6,8 +6,6 @@ use std::vec::Vec;
 mod block;
 use block::Block;
 
-const MAX_SIZE_BYTES: i32 = 2147483647;
-
 /// A cache coherent, heap allocated collection.
 /// This data structure uses i32 instead of usize due to the constraints placed
 /// on `Block`. It will never require 64 bit indexing.  What about smaller
@@ -396,6 +394,7 @@ impl<T> Freelist<T> {
 
     /// Ensure the freelist has enough capcity for the requested amount of
     /// elements.
+    // TODO(alex): Last block should increase.
     pub fn reserve_exact(&mut self, total_elements: usize) {
         self.heap_data.reserve_exact(total_elements)
     }
