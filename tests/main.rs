@@ -1,11 +1,16 @@
 #[cfg(test)]
 mod tests {
 
-    // Struct used for testing.
     struct Entity {
         _a: i32,
         _b: i32,
         _c: i32,
+    }
+
+    struct SmallEntity {
+        _a: i16,
+        _b: i16,
+        _c: i16
     }
 
     use std::mem;
@@ -24,7 +29,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn type_too_small() {
-        Freelist::<u32>::new();
+        Freelist::<SmallEntity>::new();
     }
 
     #[test]
