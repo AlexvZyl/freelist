@@ -68,7 +68,7 @@ impl<T> Freelist<T> {
     ///
     /// * Performs a non-primitive cast.
     unsafe fn get_block_mut(&mut self, index: i32) -> &mut Block {
-        transmute(&mut self.heap_data[index as usize])
+        Block::from_source(&mut self.heap_data[index as usize],)
     }
 
     /// Get a const ref the block at the given index.
@@ -231,9 +231,9 @@ impl<T> Freelist<T> {
         element_count: i32,
         next_block_index: Option<i32>,
     ) -> &mut Block {
-        Block::from_source(
+        Block::from_source_with_parts(
             &mut self.heap_data[block_index as usize],
-            Some(element_count),
+            element_count,
             next_block_index
         )
     }

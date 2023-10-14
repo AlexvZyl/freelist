@@ -18,7 +18,7 @@ pub struct Block {
 const NONE_INT: i32 = i32::MIN;
 
 impl Block {
-    /// Create a new block from the data provided by the source.  This source wil be a region of
+    /// Create a new block with provided parts.  This source wil be a region of
     /// memory in the freelist, for now only 64 bits.
     ///
     /// # Safety
@@ -26,11 +26,23 @@ impl Block {
     /// This function is highly unsage.
     ///
     /// * Transmutes the source.
-    pub unsafe fn from_source<T>(src: &mut T, n_elements: Option<i32>, next_block_index: Option<i32>) -> &mut Block {
+    pub unsafe fn from_source_with_parts<T>(src: &mut T, element_count: i32, next_block_index: Option<i32>) -> &mut Block {
         let block: &mut Block = transmute(src);
-        block.element_count = n_elements.unwrap_or_else(|| block.element_count);
-        block.next_block_index = next_block_index.unwrap_or_else(|| block.next_block_index);
+        block.element_count = element_count;
+        block.next_block_index = next_block_index.unwrap_or_else(|| NONE_INT);
         block
+    }
+
+    /// Create a new block from the source.  This source wil be a region of
+    /// memory in the freelist, for now only 64 bits.
+    ///
+    /// # Safety
+    ///
+    /// This function is highly unsage.
+    ///
+    /// * Transmutes the source.
+    pub unsafe fn from_source<T>(src: &mut T) -> &mut Block {
+        transmute(src)
     }
 
     pub fn get_n_elements(&self) -> i32 {
