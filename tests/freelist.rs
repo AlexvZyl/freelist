@@ -22,7 +22,7 @@ mod tests {
         assert_eq!(fl.capacity_blocks(), 0);
         assert_eq!(fl.used_blocks(), 0);
         assert_eq!(fl.free_blocks(), 0);
-        assert_eq!(fl.type_size_bytes(), mem::size_of::<Entity>() as i32);
+        assert_eq!(fl.type_size_bytes(), mem::size_of::<Entity>());
     }
 
     #[test]
