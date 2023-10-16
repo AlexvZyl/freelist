@@ -6,6 +6,9 @@ use std::vec::Vec;
 mod block;
 use block::Block;
 
+mod key;
+use key::Key;
+
 /// A cache coherent, heap allocated collection.
 /// This data structure uses i32 instead of usize due to the constraints placed
 /// on `Block`. It will never require 64 bit indexing.  What about smaller
