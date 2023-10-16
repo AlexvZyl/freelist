@@ -14,11 +14,11 @@ pub struct Freelist<T> {
     /// Pointer to the data located on the heap.
     heap_data: Vec<T>,
     /// Index to the first free block in the list.
-    first_free_block: Option<i32>,
+    first_free_block: Option<usize>,
     /// The number of allocated blocks.
-    used_blocks: i32,
+    used_blocks: usize,
     /// Calculates the new capacity when the freelist grows.
-    calculate_new_capacity_fn: fn(current_capacity: i32, _requested_capacity: i32) -> i32,
+    calculate_new_capacity_fn: fn(current_capacity: usize, _requested_capacity: usize) -> usize,
 }
 
 impl<T> Freelist<T> {
@@ -43,9 +43,10 @@ impl<T> Freelist<T> {
     /// * The vector can be truncated without `T` being dropped.
     /// * When extending the vector, the memory is uninitialized (which is
     ///   actually better for performance).
-    unsafe fn allocate(&mut self, element_count: i32) {
+    unsafe fn allocate(&mut self, element_count: usize) {
         // Does this copy all of the data to the new vector?
-        self.heap_data.set_len(element_count as usize);
+        // TODO(alex): Pretty sure this is wrong
+        self.heap_data.set_len(element_count);
     }
 
     /// Increases the amount of memory available by the specified amount.  
@@ -56,7 +57,7 @@ impl<T> Freelist<T> {
     /// This is highly unsafe.
     ///
     /// * `Freelist::allocate()` is called.
-    unsafe fn extend_by(&mut self, block_count: i32) {
+    unsafe fn extend_by(&mut self, block_count: usize) {
         self.allocate(self.capacity_blocks() + block_count);
     }
 
@@ -67,8 +68,8 @@ impl<T> Freelist<T> {
     /// This is unsafe.  
     ///
     /// * Performs a non-primitive cast.
-    unsafe fn get_block_mut(&mut self, index: i32) -> &mut Block {
-        Block::from_source(&mut self.heap_data[index as usize],)
+    unsafe fn get_block_mut(&mut self, index: usize) -> &mut Block {
+        Block::from_source(&mut self.heap_data[index])
     }
 
     /// Get a const ref the block at the given index.
@@ -78,8 +79,8 @@ impl<T> Freelist<T> {
     /// This is unsafe.
     ///
     /// * Performs a non-primitive cast.
-    unsafe fn get_block(&self, index: i32) -> &Block {
-        transmute(&self.heap_data[index as usize])
+    unsafe fn get_block(&self, index: usize) -> &Block {
+        transmute(&self.heap_data[index])
     }
 
     /// Checks if the blocks are adjacent.
@@ -89,14 +90,14 @@ impl<T> Freelist<T> {
     /// This is unsafe.
     ///
     /// * Performs a non-primitive cast when checknig adjacency.
-    unsafe fn blocks_are_adjacent(&self, first_block_index: i32, second_block_index: i32) -> bool {
+    unsafe fn blocks_are_adjacent(&self, first_block_index: usize, second_block_index: usize) -> bool {
         first_block_index + self.get_block(first_block_index).get_n_elements() == second_block_index
     }
 
     /// Find and commit a block that fits the size requirement.
     /// If it does not find a block large enough it will resize.  The caller is
     /// guaranteed to get a block.
-    fn find_and_commit_block(&mut self, element_count: i32) -> i32 {
+    fn find_and_commit_block(&mut self, element_count: usize) -> usize {
         let (prev_block_index, block_index) = self.find_first_fit(element_count);
         match block_index {
             // No blocks are large enough.
@@ -116,7 +117,7 @@ impl<T> Freelist<T> {
     }
 
     /// Commit the block at the index and update the blocks.
-    fn commit_block(&mut self, prev_block_index: Option<i32>, block_idx: i32, element_count: i32) {
+    fn commit_block(&mut self, prev_block_index: Option<usize>, block_idx: usize, element_count: usize) {
         unsafe {
             let block = self.get_block(block_idx);
 
@@ -154,7 +155,7 @@ impl<T> Freelist<T> {
     }
 
     /// Grow the capacity based on the calculation set.
-    fn grow_capacity(&mut self, requested_block_element_count: i32) {
+    fn grow_capacity(&mut self, requested_block_element_count: usize) {
         let current_capacity = self.capacity_blocks();
         let new_capacity =
             (self.calculate_new_capacity_fn)(current_capacity, requested_block_element_count);
@@ -185,7 +186,7 @@ impl<T> Freelist<T> {
 
     /// The default function used when calculating the new capacity of the
     /// freelist.
-    fn calculate_new_capacity_default(current_capacity: i32, _requested_capacity: i32) -> i32 {
+    fn calculate_new_capacity_default(current_capacity: usize, _requested_capacity: usize) -> usize {
         current_capacity + current_capacity / 2
     }
 
@@ -212,7 +213,7 @@ impl<T> Freelist<T> {
     /// This is unsafe.
     ///
     /// * Non-primitive casts are performed when getting the blocks.
-    unsafe fn connect_blocks(&mut self, first_block_index: i32, second_block_index: i32) {
+    unsafe fn connect_blocks(&mut self, first_block_index: usize, second_block_index: usize) {
         self.get_block_mut(first_block_index)
             .connect_at(Some(second_block_index));
     }
@@ -227,12 +228,12 @@ impl<T> Freelist<T> {
     /// * Data is being written directly to a region of memory.
     unsafe fn new_block_mut(
         &mut self,
-        block_index: i32,
-        element_count: i32,
-        next_block_index: Option<i32>,
+        block_index: usize,
+        element_count: usize,
+        next_block_index: Option<usize>,
     ) -> &mut Block {
         Block::from_source_with_parts(
-            &mut self.heap_data[block_index as usize],
+            &mut self.heap_data[block_index],
             element_count,
             next_block_index
         )
@@ -250,9 +251,9 @@ impl<T> Freelist<T> {
     // practice?
     unsafe fn new_block(
         &mut self,
-        block_index: i32,
-        element_count: i32,
-        next_block_index: Option<i32>,
+        block_index: usize,
+        element_count: usize,
+        next_block_index: Option<usize>,
     ) -> &Block {
         self.new_block_mut(block_index, element_count, next_block_index)
     }
@@ -261,7 +262,7 @@ impl<T> Freelist<T> {
     /// Returns `None` if there are no free blocks.
     // Should I rather keep track of the last block instead of searching for it?
     // Will depend on how much this function is called...
-    fn find_last_block_index(&self) -> Option<i32> {
+    fn find_last_block_index(&self) -> Option<usize> {
         // Use first free block to start searching.
         match self.first_free_block {
             // There are no blocks.
@@ -294,7 +295,7 @@ impl<T> Freelist<T> {
     /// 1: Index to the block that fits.
     /// The previous block is sometimes required and this prevents having to
     /// search the list more than once.
-    fn find_first_fit(&self, element_count: i32) -> (Option<i32>, Option<i32>) {
+    fn find_first_fit(&self, element_count: usize) -> (Option<usize>, Option<usize>) {
         // Use first free block to start searching.
         match self.first_free_block {
             // No free blocks, cannot search.
@@ -334,7 +335,7 @@ impl<T> Freelist<T> {
 
     /// If the two block are adjacent, merge them.  Returns true if the merge
     /// occured.
-    fn attempt_merge(&mut self, first_block_index: i32, second_block_index: i32) -> bool {
+    fn attempt_merge(&mut self, first_block_index: usize, second_block_index: usize) -> bool {
         unsafe {
             if self.blocks_are_adjacent(first_block_index, second_block_index) {
                 let next_block_index = self.get_block(second_block_index).get_next_block_index();
@@ -354,8 +355,8 @@ impl<T> Freelist<T> {
 
     /// Get the size of the type in bytes (includes alignment).
     // This *can* be evauluated at compile-time, but is it always?
-    pub const fn type_size_bytes(&self) -> i32 {
-        size_of::<T>() as i32
+    pub const fn type_size_bytes(&self) -> usize {
+        size_of::<T>()
     }
 
     /// Check if the freelist has an empty (free) block.
@@ -364,32 +365,32 @@ impl<T> Freelist<T> {
     }
 
     /// Get the capacity of the freelist.
-    pub fn capacity_blocks(&self) -> i32 {
-        self.heap_data.capacity() as i32
+    pub fn capacity_blocks(&self) -> usize {
+        self.heap_data.capacity()
     }
 
     /// Get the capacity of the freelist in bytes.
-    pub fn capacity_bytes(&self) -> i32 {
+    pub fn capacity_bytes(&self) -> usize {
         self.capacity_blocks() * self.type_size_bytes()
     }
 
     /// Get the number blocks currently being used.
-    pub fn used_blocks(&self) -> i32 {
+    pub fn used_blocks(&self) -> usize {
         self.used_blocks
     }
 
     /// Get the amount of memory currently used.
-    pub fn used_bytes(&self) -> i32 {
+    pub fn used_bytes(&self) -> usize {
         self.used_blocks * self.type_size_bytes()
     }
 
     /// Get the amount of free blocks.
-    pub fn free_blocks(&self) -> i32 {
+    pub fn free_blocks(&self) -> usize {
         self.capacity_blocks() - self.used_blocks()
     }
 
     /// Get the amount of free memory.
-    pub fn free_bytes(&self) -> i32 {
+    pub fn free_bytes(&self) -> usize {
         self.free_blocks() * self.type_size_bytes()
     }
 

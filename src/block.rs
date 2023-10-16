@@ -26,10 +26,10 @@ impl Block {
     /// This function is highly unsage.
     ///
     /// * Transmutes the source.
-    pub unsafe fn from_source_with_parts<T>(src: &mut T, element_count: i32, next_block_index: Option<i32>) -> &mut Block {
+    pub unsafe fn from_source_with_parts<T>(src: &mut T, element_count: usize, next_block_index: Option<usize>) -> &mut Block {
         let block: &mut Block = transmute(src);
-        block.element_count = element_count;
-        block.next_block_index = next_block_index.unwrap_or_else(|| NONE_INT);
+        block.element_count = element_count as i32;
+        block.next_block_index = next_block_index.unwrap_or_else(|| NONE_INT as usize) as i32;
         block
     }
 
@@ -45,30 +45,30 @@ impl Block {
         transmute(src)
     }
 
-    pub fn get_n_elements(&self) -> i32 {
-        self.element_count
+    pub fn get_n_elements(&self) -> usize {
+        self.element_count as usize
     }
 
     /// Returns the new number of elements.
     /// Errors if the block overlaps with the following block.
-    pub fn grow(&mut self, increase: i32) -> Result<i32, i32> {
-        let new_cap = self.element_count + increase;
+    pub fn grow(&mut self, increase: usize) -> Result<usize, usize> {
+        let new_cap = self.element_count + increase as i32;
         if self.has_next_block() && (new_cap >= self.next_block_index) {
-            return Err(new_cap);
+            return Err(new_cap as usize);
         }
         self.element_count = new_cap;
-        Ok(new_cap)
+        Ok(new_cap as usize)
     }
 
     /// Returns the new number of elements.
     /// Errors if the value is shrunk to or below 0.
-    pub fn shrink(&mut self, decrease: i32) -> Result<i32, i32> {
-        let new_cap = self.element_count - decrease;
+    pub fn shrink(&mut self, decrease: usize) -> Result<usize, usize> {
+        let new_cap = self.element_count - decrease as i32;
         if new_cap <= 0 {
-            return Err(new_cap);
+            return Err(new_cap as usize);
         }
         self.element_count = new_cap;
-        Ok(new_cap)
+        Ok(new_cap as usize)
     }
 
     pub fn has_next_block(&self) -> bool {
@@ -80,16 +80,16 @@ impl Block {
         self.element_count == 0
     }
 
-    pub fn get_next_block_index(&self) -> Option<i32> {
+    pub fn get_next_block_index(&self) -> Option<usize> {
         match self.next_block_index {
             NONE_INT => None,
-            _ => Some(self.next_block_index),
+            _ => Some(self.next_block_index as usize),
         }
     }
 
     /// This basically just changes `next_block_index`, since blocks
     /// do not have references to the previous block (for now?).
-    pub fn connect_at(&mut self, block_index: Option<i32>) {
-        self.next_block_index = block_index.unwrap_or_else(|| NONE_INT)
+    pub fn connect_at(&mut self, block_index: Option<usize>) {
+        self.next_block_index = block_index.unwrap_or_else(|| NONE_INT as usize) as i32
     }
 }
