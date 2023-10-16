@@ -23,7 +23,7 @@ impl Block {
     ///
     /// # Safety
     ///
-    /// This function is highly unsage.
+    /// This function is highly unsafe.
     ///
     /// * Transmutes the source.
     pub unsafe fn from_source_with_parts<T>(src: &mut T, element_count: usize, next_block_index: Option<usize>) -> &mut Block {
@@ -38,7 +38,7 @@ impl Block {
     ///
     /// # Safety
     ///
-    /// This function is highly unsage.
+    /// This function is highly unsafe.
     ///
     /// * Transmutes the source.
     pub unsafe fn from_source<T>(src: &mut T) -> &mut Block {
