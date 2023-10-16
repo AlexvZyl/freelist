@@ -10,12 +10,12 @@ use std::mem::transmute;
 pub struct Block {
     /// How many elements are (or can fit) in(to) the block.
     /// (A block can consist of many contiguous elements)
-    element_count: i32,
+    element_count: u32,
     /// Index to the next free block.
-    next_block_index: i32,
+    next_block_index: u32,
 }
 
-const NONE_INT: i32 = i32::MIN;
+const NONE_INT: u32 = u32::MAX;
 
 impl Block {
     /// Create a new block with provided parts.  This source wil be a region of
@@ -28,8 +28,8 @@ impl Block {
     /// * Transmutes the source.
     pub unsafe fn from_source_with_parts<T>(src: &mut T, element_count: usize, next_block_index: Option<usize>) -> &mut Block {
         let block: &mut Block = transmute(src);
-        block.element_count = element_count as i32;
-        block.next_block_index = next_block_index.unwrap_or_else(|| NONE_INT as usize) as i32;
+        block.element_count = element_count as u32;
+        block.next_block_index = next_block_index.unwrap_or_else(|| NONE_INT as usize) as u32;
         block
     }
 
@@ -52,7 +52,7 @@ impl Block {
     /// Returns the new number of elements.
     /// Errors if the block overlaps with the following block.
     pub fn grow(&mut self, increase: usize) -> Result<usize, usize> {
-        let new_cap = self.element_count + increase as i32;
+        let new_cap = self.element_count + increase as u32;
         if self.has_next_block() && (new_cap >= self.next_block_index) {
             return Err(new_cap as usize);
         }
@@ -63,7 +63,7 @@ impl Block {
     /// Returns the new number of elements.
     /// Errors if the value is shrunk to or below 0.
     pub fn shrink(&mut self, decrease: usize) -> Result<usize, usize> {
-        let new_cap = self.element_count - decrease as i32;
+        let new_cap = self.element_count - decrease as u32;
         if new_cap <= 0 {
             return Err(new_cap as usize);
         }
@@ -90,6 +90,6 @@ impl Block {
     /// This basically just changes `next_block_index`, since blocks
     /// do not have references to the previous block (for now?).
     pub fn connect_at(&mut self, block_index: Option<usize>) {
-        self.next_block_index = block_index.unwrap_or_else(|| NONE_INT as usize) as i32
+        self.next_block_index = block_index.unwrap_or_else(|| NONE_INT as usize) as u32
     }
 }
