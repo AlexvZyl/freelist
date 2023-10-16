@@ -6,8 +6,15 @@ use std::vec::Vec;
 mod block;
 use block::Block;
 
-mod key;
-use key::Key;
+
+/// Represents an index into the freelist.  Contains an ID for the fragmentation state
+/// for when defragmentation will be implemented.
+// TODO(alex): Well, everything...
+pub struct Key {
+    index: usize,
+    state_id: usize
+}
+
 
 /// A cache coherent, heap allocated collection.
 /// This data structure uses i32 instead of usize due to the constraints placed
@@ -23,6 +30,7 @@ pub struct Freelist<T> {
     /// Calculates the new capacity when the freelist grows.
     calculate_new_capacity_fn: fn(current_capacity: usize, _requested_capacity: usize) -> usize,
 }
+
 
 impl<T> Freelist<T> {
     pub fn new() -> Self {
