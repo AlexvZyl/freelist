@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use std::mem::{size_of, transmute};
+use std::mem::size_of;
 use std::vec::Vec;
 
 mod block;
@@ -21,14 +21,16 @@ pub struct Key {
 /// on `Block`. It will never require 64 bit indexing.  What about smaller
 /// architectures?
 pub struct Freelist<T> {
-    /// Pointer to the data located on the heap.
-    heap_data: Vec<T>,
-    /// Index to the first free block in the list.
+    /// The data located on the heap.
+    buffer: Vec<T>,
+    /// Index to the first free block.
     first_free_block: Option<usize>,
-    /// The number of allocated blocks.
-    used_blocks: usize,
     /// Calculates the new capacity when the freelist grows.
-    calculate_new_capacity_fn: fn(current_capacity: usize, _requested_capacity: usize) -> usize,
+    calculate_new_capacity_fn: fn(current_capacity: usize, requested_capacity: usize) -> usize,
+    /// Used to identify which keys relate to which state of the freelist.
+    fragmentation_state_id: usize
+    // TODO(alex): Need a vector of hashmaps that relate the keys from each 
+    // fragmentation state.
 }
 
 
@@ -37,10 +39,10 @@ impl<T> Freelist<T> {
         // This is currently done at runtime, can it be done at compile time?
         assert!(size_of::<T>() >= size_of::<Block>());
         Freelist {
-            heap_data: Vec::with_capacity(0),
+            buffer: Vec::with_capacity(0),
             first_free_block: None,
-            used_blocks: 0,
             calculate_new_capacity_fn: Freelist::<T>::calculate_new_capacity_default,
+            fragmentation_state_id: 0
         }
     }
 
@@ -57,7 +59,7 @@ impl<T> Freelist<T> {
     unsafe fn allocate(&mut self, element_count: usize) {
         // Does this copy all of the data to the new vector?
         // TODO(alex): Pretty sure this is wrong
-        self.heap_data.set_len(element_count);
+        self.buffer.set_len(element_count);
     }
 
     /// Increases the amount of memory available by the specified amount.  
@@ -69,7 +71,7 @@ impl<T> Freelist<T> {
     ///
     /// * `Freelist::allocate()` is called.
     unsafe fn extend_by(&mut self, block_count: usize) {
-        self.allocate(self.capacity_blocks() + block_count);
+        self.allocate(self.capacity() + block_count);
     }
 
     /// Get a mutable ref the block at the given index.
@@ -80,7 +82,7 @@ impl<T> Freelist<T> {
     ///
     /// * Performs a non-primitive cast.
     unsafe fn get_block_mut(&mut self, index: usize) -> &mut Block {
-        Block::from_source(&mut self.heap_data[index])
+        Block::from_source_mut(&mut self.buffer[index])
     }
 
     /// Get a const ref the block at the given index.
@@ -91,7 +93,7 @@ impl<T> Freelist<T> {
     ///
     /// * Performs a non-primitive cast.
     unsafe fn get_block(&self, index: usize) -> &Block {
-        transmute(&self.heap_data[index])
+        Block::from_source(&self.buffer[index])
     }
 
     /// Checks if the blocks are adjacent.
@@ -167,7 +169,7 @@ impl<T> Freelist<T> {
 
     /// Grow the capacity based on the calculation set.
     fn grow_capacity(&mut self, requested_block_element_count: usize) {
-        let current_capacity = self.capacity_blocks();
+        let current_capacity = self.capacity();
         let new_capacity =
             (self.calculate_new_capacity_fn)(current_capacity, requested_block_element_count);
         let capacity_increase = new_capacity - current_capacity;
@@ -211,7 +213,7 @@ impl<T> Freelist<T> {
                 Some(..) => {
                     let last_block = self.get_block(last_block_index.unwrap());
                     return last_block_index.unwrap() + last_block.get_n_elements()
-                        == self.capacity_blocks();
+                        == self.capacity();
                 }
             }
         }
@@ -243,8 +245,8 @@ impl<T> Freelist<T> {
         element_count: usize,
         next_block_index: Option<usize>,
     ) -> &mut Block {
-        Block::from_source_with_parts(
-            &mut self.heap_data[block_index],
+        Block::from_source_with_parts_mut(
+            &mut self.buffer[block_index],
             element_count,
             next_block_index
         )
@@ -266,7 +268,11 @@ impl<T> Freelist<T> {
         element_count: usize,
         next_block_index: Option<usize>,
     ) -> &Block {
-        self.new_block_mut(block_index, element_count, next_block_index)
+        Block::from_source_with_parts(
+            &mut self.buffer[block_index],
+            element_count,
+            next_block_index
+        )
     }
 
     /// Traverse the list to find the last free block.
@@ -376,39 +382,19 @@ impl<T> Freelist<T> {
     }
 
     /// Get the capacity of the freelist.
-    pub fn capacity_blocks(&self) -> usize {
-        self.heap_data.capacity()
+    pub fn capacity(&self) -> usize {
+        self.buffer.capacity()
     }
 
     /// Get the capacity of the freelist in bytes.
     pub fn capacity_bytes(&self) -> usize {
-        self.capacity_blocks() * self.type_size_bytes()
-    }
-
-    /// Get the number blocks currently being used.
-    pub fn used_blocks(&self) -> usize {
-        self.used_blocks
-    }
-
-    /// Get the amount of memory currently used.
-    pub fn used_bytes(&self) -> usize {
-        self.used_blocks * self.type_size_bytes()
-    }
-
-    /// Get the amount of free blocks.
-    pub fn free_blocks(&self) -> usize {
-        self.capacity_blocks() - self.used_blocks()
-    }
-
-    /// Get the amount of free memory.
-    pub fn free_bytes(&self) -> usize {
-        self.free_blocks() * self.type_size_bytes()
+        self.capacity() * self.type_size_bytes()
     }
 
     /// Ensure the freelist has enough capcity for the requested amount of
     /// elements.
     // TODO(alex): Last block should increase.
     pub fn reserve_exact(&mut self, total_elements: usize) {
-        self.heap_data.reserve_exact(total_elements)
+        self.buffer.reserve_exact(total_elements)
     }
 }

@@ -26,14 +26,22 @@ impl Block {
     /// This function is highly unsafe.
     ///
     /// * Transmutes the source.
-    pub unsafe fn from_source_with_parts<T>(src: &mut T, element_count: usize, next_block_index: Option<usize>) -> &mut Block {
-        let block: &mut Block = transmute(src);
+    pub unsafe fn from_source_with_parts_mut<T>(src: &mut T, element_count: usize, next_block_index: Option<usize>) -> &mut Block {
+        let block: &mut Block = Block::from_source_mut(src);
         block.element_count = element_count as u32;
         block.next_block_index = next_block_index.unwrap_or_else(|| NONE_INT as usize) as u32;
         block
     }
 
-    /// Create a new block from the source.  This source wil be a region of
+    /// See `Block::from_source_with_parts_mut`.
+    pub unsafe fn from_source_with_parts<T>(src: &mut T, element_count: usize, next_block_index: Option<usize>) -> &Block {
+        let block: &mut Block = Block::from_source_mut(src);
+        block.element_count = element_count as u32;
+        block.next_block_index = next_block_index.unwrap_or_else(|| NONE_INT as usize) as u32;
+        block
+    }
+    
+    /// Create a new mutable block from the source.  This source wil be a region of
     /// memory in the freelist, for now only 64 bits.
     ///
     /// # Safety
@@ -41,7 +49,12 @@ impl Block {
     /// This function is highly unsafe.
     ///
     /// * Transmutes the source.
-    pub unsafe fn from_source<T>(src: &mut T) -> &mut Block {
+    pub unsafe fn from_source_mut<T>(src: &mut T) -> &mut Block {
+        transmute(src)
+    }
+
+    /// See `Block::from_source_mut`.
+    pub unsafe fn from_source<T>(src: &T) -> &Block {
         transmute(src)
     }
 
@@ -50,32 +63,32 @@ impl Block {
     }
 
     /// Returns the new number of elements.
-    /// Errors if the block overlaps with the following block.
+    /// Errors if the block touches or overlaps with the following block.
     pub fn grow(&mut self, increase: usize) -> Result<usize, usize> {
-        let new_cap = self.element_count + increase as u32;
-        if self.has_next_block() && (new_cap >= self.next_block_index) {
-            return Err(new_cap as usize);
+        let new_cap = self.element_count as usize + increase;
+        if self.has_next_block() && (new_cap >= self.next_block_index as usize) {
+            return Err(new_cap);
         }
-        self.element_count = new_cap;
-        Ok(new_cap as usize)
+        self.element_count = new_cap as u32;
+        Ok(new_cap)
     }
 
     /// Returns the new number of elements.
     /// Errors if the value is shrunk to or below 0.
     pub fn shrink(&mut self, decrease: usize) -> Result<usize, usize> {
-        let new_cap = self.element_count - decrease as u32;
+        let new_cap = self.element_count as usize - decrease;
         if new_cap <= 0 {
-            return Err(new_cap as usize);
+            return Err(new_cap);
         }
-        self.element_count = new_cap;
-        Ok(new_cap as usize)
+        self.element_count = new_cap as u32;
+        Ok(new_cap)
     }
 
     pub fn has_next_block(&self) -> bool {
         self.next_block_index != NONE_INT
     }
 
-    /// The block should be removed from the freelist if this is true.
+    /// NOTE: The block should be removed from the freelist if this is true.
     pub fn is_empty(&self) -> bool {
         self.element_count == 0
     }
